@@ -22,7 +22,7 @@ export const RegisterPage: React.FC = () => {
 
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match. Please re-enter.');
@@ -41,7 +41,7 @@ export const RegisterPage: React.FC = () => {
       status: 'ACTIVE'
     });
 
-    login(formData.email);
+    await login(formData.email, formData.password);
     navigate('/dashboard');
   };
 

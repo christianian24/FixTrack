@@ -42,20 +42,23 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedDemoId, setSelectedDemoId] = useState<string>('usr_alex');
 
-  const handleManualLogin = (e: React.FormEvent) => {
+  const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    setTimeout(() => {
-      const success = login(email);
-      if (success) {
+    try {
+      const err = await login(email, password);
+      if (!err) {
         navigate('/dashboard');
       } else {
-        setError('Please enter a valid school email address (e.g. name@school.edu).');
+        setError(err);
       }
+    } catch {
+      setError('Please enter a valid school email address (e.g. name@school.edu).');
+    } finally {
       setLoading(false);
-    }, 250);
+    }
   };
 
   const handleSelectDemo = (userId: string) => {
@@ -66,11 +69,20 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickLogin = (userId: string) => {
+  const handleQuickLogin = async (userId: string) => {
     const user = demoUsers.find(u => u.id === userId);
     if (user) {
-      login(user.email);
-      navigate('/dashboard');
+      setLoading(true);
+      try {
+        const err = await login(user.email);
+        if (!err) {
+          navigate('/dashboard');
+        } else {
+          setError(err);
+        }
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

@@ -5,7 +5,7 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { Concern } from '../../types/concern';
-import { Wrench, ShieldCheck, UserCheck, ArrowRight, AlertCircle } from 'lucide-react';
+import { ShieldCheck, UserCheck, ArrowRight, AlertCircle } from 'lucide-react';
 
 type Tab = 'UNASSIGNED' | 'ACTIVE' | 'VERIFY' | 'CRITICAL' | 'ALL';
 

@@ -1,173 +1,275 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+/**
+ * AuthContext — connects to the real FastAPI backend.
+ *
+ * Supports:
+ *  - Real email/password login via POST /api/v1/auth/login
+ *  - Demo persona login via POST /api/v1/auth/demo-login/{persona}
+ *  - Persists JWT in localStorage via the api/client helper
+ *  - Falls back to offline mock mode when VITE_OFFLINE_DEMO=true
+ */
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
+
 import { User, UserRole } from '../types/user';
 import { mockUsers } from '../data/mockUsers';
+import { authApi, MeResponse } from '../services/api/authApi';
+import { clearToken, getToken } from '../services/api/client';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AuthContextType {
   currentUser: User;
   currentRole: UserRole;
   isAuthenticated: boolean;
+  isLoading: boolean;
   isDemoMode: boolean;
+  /** true when backend is unreachable and we are using mock data */
+  isOffline: boolean;
   setDemoMode: (enabled: boolean) => void;
   toggleDemoMode: () => void;
-  login: (email: string) => boolean;
-  loginAsDemoUser: (identifier: string) => void;
+  /** Real email + password login (returns error string on failure) */
+  login: (email: string, password?: string) => Promise<string | null>;
+  /** Instantly switch to a demo persona (uses backend demo endpoint) */
+  loginAsDemoUser: (identifier: string) => Promise<void>;
+  /** Legacy switch for demo role-switcher panel */
   switchRole: (role: UserRole) => void;
   logout: () => void;
   demoUsers: User[];
 }
 
+// ─── Context ──────────────────────────────────────────────────────────────────
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_STORAGE_KEY = 'facilitycare_active_user_v1';
-const AUTH_STATE_KEY = 'facilitycare_is_authenticated_v1';
 const DEMO_MODE_STORAGE_KEY = 'facilitycare_demo_mode_v1';
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Demo mode state (persisted)
+// Converts backend MeResponse → frontend User shape
+function mapMe(me: MeResponse): User {
+  return {
+    id: me.id,
+    firstName: me.first_name,
+    lastName: me.last_name,
+    email: me.email,
+    role: me.role as UserRole,
+    userType: me.user_type as User['userType'],
+    department: me.department ?? undefined,
+    phone: me.phone ?? undefined,
+    avatar: me.avatar_url ?? undefined,
+    status: me.status as User['status'],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  // Whether we are operating in offline / mock mode
+  const isOffline =
+    import.meta.env.VITE_OFFLINE_DEMO === 'true' ||
+    import.meta.env.MODE === 'demo';
+
   const [isDemoMode, setIsDemoModeState] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem(DEMO_MODE_STORAGE_KEY);
-      if (saved !== null) return saved === 'true';
-    } catch (e) {
-      console.error('Failed to load demo mode preference', e);
+      const s = localStorage.getItem(DEMO_MODE_STORAGE_KEY);
+      return s !== null ? s === 'true' : true;
+    } catch {
+      return true;
     }
-    return true; // Default to demo mode enabled initially
   });
 
-  // Authentication state (persisted)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem(AUTH_STATE_KEY);
-      if (saved !== null) return saved === 'true';
-    } catch (e) {
-      console.error('Failed to load auth state', e);
-    }
-    return true; // Default to true on initial run
-  });
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // Active user state (persisted)
   const [currentUser, setCurrentUser] = useState<User>(() => {
     try {
       const saved = localStorage.getItem(AUTH_STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        const match = mockUsers.find(u => u.id === parsed.id || u.email === parsed.email);
-        if (match) return match;
-        return parsed;
+        const parsed = JSON.parse(saved) as User;
+        const match = mockUsers.find(
+          (u) => u.id === parsed.id || u.email === parsed.email
+        );
+        return match ?? parsed;
       }
-    } catch (e) {
-      console.error('Failed to load user from storage', e);
+    } catch {
+      /* ignore */
     }
-    // Default to Student Reporter
     return mockUsers[0];
   });
+
+  // ── On mount: try to hydrate from existing token ─────────────────────────
+
+  useEffect(() => {
+    const hydrate = async () => {
+      const token = getToken();
+      if (token && !isOffline) {
+        try {
+          const me = await authApi.me();
+          const user = mapMe(me);
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+        } catch {
+          // Token expired or invalid — clear it
+          clearToken();
+          setIsAuthenticated(false);
+        }
+      } else if (isOffline) {
+        // Offline demo: auto-authenticate with stored/default user
+        setIsAuthenticated(true);
+      }
+      setIsLoading(false);
+    };
+    hydrate();
+  }, [isOffline]);
+
+  // ── Persist user to localStorage whenever it changes ─────────────────────
 
   useEffect(() => {
     try {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
-    } catch (e) {
-      console.error('Failed to persist user to storage', e);
+    } catch {
+      /* ignore */
     }
   }, [currentUser]);
+
+  // ── Actions ───────────────────────────────────────────────────────────────
 
   const setDemoMode = (enabled: boolean) => {
     setIsDemoModeState(enabled);
     try {
       localStorage.setItem(DEMO_MODE_STORAGE_KEY, String(enabled));
-    } catch (e) {
-      console.error('Failed to persist demo mode state', e);
+    } catch {
+      /* ignore */
     }
   };
 
-  const toggleDemoMode = () => {
-    setDemoMode(!isDemoMode);
-  };
+  const toggleDemoMode = () => setDemoMode(!isDemoMode);
 
-  const login = (email: string): boolean => {
-    const trimmed = email.trim().toLowerCase();
-    const user = mockUsers.find(u => u.email.toLowerCase() === trimmed);
-    if (user) {
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-      try {
-        localStorage.setItem(AUTH_STATE_KEY, 'true');
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      } catch (e) {
-        console.error(e);
+  /**
+   * Login with email + optional password.
+   * - If offline/demo mode and no password: uses mock lookup
+   * - Otherwise calls the real backend
+   */
+  const login = useCallback(
+    async (email: string, password?: string): Promise<string | null> => {
+      const trimmed = email.trim().toLowerCase();
+
+      // ── Offline / demo fallback ────────────────────────────────────────
+      if (isOffline || !password) {
+        const user = mockUsers.find(
+          (u) => u.email.toLowerCase() === trimmed
+        );
+        if (user) {
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          return null; // success
+        }
+        // Accept any valid email format and create a guest student user
+        if (trimmed.includes('@')) {
+          const [local] = trimmed.split('@');
+          const parts = local.split('.');
+          const guest: User = {
+            id: `usr_${Date.now()}`,
+            firstName:
+              parts[0]?.charAt(0).toUpperCase() + (parts[0]?.slice(1) ?? ''),
+            lastName:
+              (parts[1]?.charAt(0).toUpperCase() ?? '') +
+              (parts[1]?.slice(1) ?? 'Member'),
+            email: trimmed,
+            role: 'REPORTER',
+            userType: 'STUDENT',
+            department: 'Academic Operations',
+            status: 'ACTIVE',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setCurrentUser(guest);
+          setIsAuthenticated(true);
+          return null;
+        }
+        return 'Invalid email address.';
       }
-      return true;
-    }
 
-    // In production view, allow entering any valid school email
-    if (trimmed.includes('@')) {
-      const localPart = trimmed.split('@')[0];
-      const parts = localPart.split('.');
-      const firstName = parts[0] ? parts[0].charAt(0).toUpperCase() + parts[0].slice(1) : 'Campus';
-      const lastName = parts[1] ? parts[1].charAt(0).toUpperCase() + parts[1].slice(1) : 'Member';
-
-      const customUser: User = {
-        id: `usr_${Date.now()}`,
-        firstName,
-        lastName,
-        email: trimmed,
-        role: 'REPORTER',
-        userType: 'STUDENT',
-        department: 'Academic Operations',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        status: 'ACTIVE',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setCurrentUser(customUser);
-      setIsAuthenticated(true);
+      // ── Real backend login ─────────────────────────────────────────────
       try {
-        localStorage.setItem(AUTH_STATE_KEY, 'true');
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(customUser));
-      } catch (e) {
-        console.error(e);
+        await authApi.login({ email: trimmed, password });
+        const me = await authApi.me();
+        const user = mapMe(me);
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        return null; // success
+      } catch (err) {
+        return err instanceof Error ? err.message : 'Login failed.';
       }
-      return true;
-    }
+    },
+    [isOffline]
+  );
 
-    return false;
-  };
+  const loginAsDemoUser = useCallback(
+    async (identifier: string): Promise<void> => {
+      // Offline demo — just find in mock list
+      if (isOffline) {
+        const user = mockUsers.find(
+          (u) =>
+            u.id === identifier ||
+            u.role === identifier ||
+            u.userType === identifier
+        );
+        if (user) {
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+        }
+        return;
+      }
 
-  const loginAsDemoUser = (identifier: string) => {
-    const user = mockUsers.find(
-      u => u.id === identifier || u.role === identifier || u.userType === identifier
-    );
-    if (user) {
-      setCurrentUser(user);
-      setIsAuthenticated(true);
+      // Real backend demo login
       try {
-        localStorage.setItem(AUTH_STATE_KEY, 'true');
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      } catch (e) {
-        console.error(e);
+        await authApi.loginDemo(identifier);
+        const me = await authApi.me();
+        setCurrentUser(mapMe(me));
+        setIsAuthenticated(true);
+      } catch {
+        // Fallback to mock if backend not available yet
+        const user = mockUsers.find(
+          (u) =>
+            u.id === identifier ||
+            u.role === identifier ||
+            u.userType === identifier
+        );
+        if (user) {
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+        }
       }
-    }
-  };
+    },
+    [isOffline]
+  );
 
   const switchRole = (role: UserRole) => {
-    const user = mockUsers.find(u => u.role === role);
+    const user = mockUsers.find((u) => u.role === role);
     if (user) {
       setCurrentUser(user);
       try {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      } catch (e) {
-        console.error(e);
+      } catch {
+        /* ignore */
       }
     }
   };
 
   const logout = () => {
+    authApi.logout(); // clears JWT from localStorage
     setIsAuthenticated(false);
-    try {
-      localStorage.setItem(AUTH_STATE_KEY, 'false');
-    } catch (e) {
-      console.error('Failed to persist logout state', e);
-    }
+    setCurrentUser(mockUsers[0]);
   };
 
   return (
@@ -176,14 +278,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentUser,
         currentRole: currentUser.role,
         isAuthenticated,
+        isLoading,
         isDemoMode,
+        isOffline,
         setDemoMode,
         toggleDemoMode,
         login,
         loginAsDemoUser,
         switchRole,
         logout,
-        demoUsers: mockUsers
+        demoUsers: mockUsers,
       }}
     >
       {children}
@@ -193,8 +297,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

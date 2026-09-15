@@ -1,6 +1,5 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { School } from 'lucide-react';
 
 export const AuthLayout: React.FC = () => {
   return (

@@ -27,28 +27,31 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     );
   }
 
-  const Tab = ({ id, label, count }: { id: 'all' | 'before' | 'after'; label: string; count: number }) => (
-    <button
-      onClick={() => setActiveTab(id)}
-      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-        activeTab === id
-          ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
-          : 'text-slate-500 hover:text-slate-700'
-      }`}
-    >
-      {label} <span className="opacity-60">({count})</span>
-    </button>
-  );
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold text-slate-700">{title}</h4>
         {hasAfter && (
           <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100">
-            <Tab id="all"    label="All"    count={beforePhotos.length + afterPhotos.length} />
-            <Tab id="before" label="Before" count={beforePhotos.length} />
-            <Tab id="after"  label="After"  count={afterPhotos.length} />
+            {(
+              [
+                { id: 'all' as const, label: 'All', count: beforePhotos.length + afterPhotos.length },
+                { id: 'before' as const, label: 'Before', count: beforePhotos.length },
+                { id: 'after' as const, label: 'After', count: afterPhotos.length },
+              ]
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {tab.label} <span className="opacity-60">({tab.count})</span>
+              </button>
+            ))}
           </div>
         )}
       </div>

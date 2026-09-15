@@ -29,19 +29,23 @@ FixTrack is an enterprise-grade, centralized web-based maintenance operations pl
 
 ## 🛠️ Technology Stack
 
-### Frontend (Phase 1 — Current)
+### Frontend
 - **Framework**: React 19 + TypeScript + Vite 8
-- **Styling**: Tailwind CSS configured with the custom **Machined Glass Console** design system (dark technical slate `#090d16`, glass cards with backdrop blur, subtle borders `#233354`, and luminous status accents)
+- **Styling**: Tailwind CSS with clean, modern school portal UI (white/light-slate backgrounds, sky blue `#0284c7` accents, subtle borders, Inter typography)
 - **Icons**: Lucide React
 - **Data Visualization**: Recharts
-- **Routing**: React Router v7
-- **State & Persistence**: React Context API (`FacilityCareContext`, `AuthContext`) synced to `localStorage` with initial seed fallback and a 1-click **Reset Demo Data** action.
+- **Routing**: React Router v7 with RBAC route protection (`ProtectedRoute`)
+- **API Services**: Unified typed API client with JWT interceptor (`src/services/api/`)
+- **State & Persistence**: Dual-mode `AuthContext` and `FacilityCareContext` supporting live backend and offline fallback.
 
-### Backend (Phase 2 — Future Architecture)
-- **API Framework**: Python 3.12 + FastAPI
-- **Database & ORM**: PostgreSQL + SQLAlchemy + Alembic migrations
-- **Data Validation**: Pydantic v2
-- **Authentication**: JWT Bearer Tokens + Password Hashing (Argon2 / bcrypt) + RBAC
+### Backend (FastAPI + SQLAlchemy 2.0)
+- **API Framework**: Python 3.12 + FastAPI (REST API, OpenAPI/Swagger at `/api/docs`)
+- **Database & ORM**: SQLAlchemy 2.0 (asyncio) + Alembic migrations
+- **Databases**: SQLite (zero-config local dev) / PostgreSQL (production)
+- **Security**: JWT Bearer Tokens + bcrypt password hashing + 5-role RBAC server dependencies
+- **Engines**: Server-side duplicate detection (token Jaccard) and multi-factor priority advisor
+- **File Storage**: Local uploads with static serving + S3-ready cloud abstraction
+- **Testing**: 30 comprehensive automated tests with pytest and pytest-asyncio
 
 ---
 
@@ -49,14 +53,13 @@ FixTrack is an enterprise-grade, centralized web-based maintenance operations pl
 
 FixTrack includes 5 pre-configured demo personas:
 
-| Role | Demo User | Email | Key Capabilities |
-| :--- | :--- | :--- | :--- |
-| **Reporter (Student)** | Alex Rivera | `alex.student@school.edu` | Report concerns, track submissions, receive updates |
-| **Reporter (Faculty)** | Dr. Maria Santos | `maria.santos@school.edu` | Report hazards, verify repairs for classroom/lab |
-| **Maintenance Personnel** | Juan Dela Cruz | `juan.tech@school.edu` | Accept tasks, update progress notes, upload after photos |
-| **Maintenance Personnel** | Robert Taylor | `robert.taylor@school.edu` | HVAC & Plumbing repair execution |
-| **Maintenance Supervisor** | Engr. Carlos Mendoza | `carlos.supervisor@school.edu` | Triage, assign technicians, inspect before/after photos, close requests |
-| **Administrator** | Elena Vance | `elena.admin@school.edu` | Manage campus master data, users, rooms, analytics |
+| Role | Demo User | Email | Password | Key Capabilities |
+| :--- | :--- | :--- | :--- | :--- |
+| **Reporter (Student)** | Alex Rivera | `alex.student@school.edu` | `demo1234` | Report concerns, track submissions, receive updates |
+| **Reporter (Faculty)** | Dr. Maria Santos | `maria.santos@school.edu` | `demo1234` | Report hazards, verify repairs for classroom/lab |
+| **Maintenance Personnel** | Juan Dela Cruz | `juan.tech@school.edu` | `demo1234` | Accept tasks, update progress notes, upload after photos |
+| **Maintenance Supervisor** | Engr. Carlos Mendoza | `carlos.supervisor@school.edu` | `demo1234` | Triage, assign technicians, inspect before/after photos, close requests |
+| **Administrator** | Elena Vance | `elena.admin@school.edu` | `demo1234` | Manage campus master data, users, rooms, analytics |
 
 *Use the **Role Dropdown** in the top header bar to instantly switch between demo roles without logging out.*
 
@@ -66,75 +69,89 @@ FixTrack includes 5 pre-configured demo personas:
 
 ```
 c:\code_vs\Faculty\
-├── docs/
-│   └── architecture.md              # Detailed architecture & Phase 2 backend blueprint
+├── vercel.json                      # Vercel SPA routing & security headers
+├── .env.example                     # Frontend environment variables template
+├── backend/                         # FastAPI Full-Stack Backend
+│   ├── requirements.txt             # Python dependencies
+│   ├── alembic.ini                  # Alembic migration configuration
+│   ├── .env.example                 # Backend environment variables template
+│   ├── alembic/                     # Database migrations
+│   │   ├── env.py                   # Async Alembic runner
+│   │   └── versions/                # Versioned migration scripts
+│   ├── app/
+│   │   ├── main.py                  # FastAPI entry point & CORS
+│   │   ├── core/                    # Settings, security, JWT, RBAC dependencies
+│   │   ├── db/                      # Session, Base, seed scripts
+│   │   ├── models/                  # SQLAlchemy 2.0 async models
+│   │   ├── schemas/                 # Pydantic v2 schemas
+│   │   ├── services/                # Duplicate engine, priority engine, storage
+│   │   └── api/v1/                  # REST routers for auth, concerns, buildings, etc.
+│   └── tests/                       # Pytest automated test suite (30 tests)
 ├── src/
 │   ├── main.tsx                     # React entry point
-│   ├── App.tsx                      # Route declarations & provider nesting
-│   ├── index.css                    # Machined Glass design tokens & glass utilities
-│   ├── types/                       # Core TypeScript domain models (PostgreSQL-ready)
-│   │   ├── user.ts
-│   │   ├── concern.ts
-│   │   ├── building.ts
-│   │   ├── room.ts
-│   │   ├── category.ts
-│   │   ├── notification.ts
-│   │   └── analytics.ts
-│   ├── data/                        # Realistic mock seed data
-│   │   ├── mockUsers.ts
-│   │   ├── mockBuildings.ts         # 6 campus buildings
-│   │   ├── mockRooms.ts             # 21 campus rooms
-│   │   ├── mockCategories.ts        # 16 required facility categories
-│   │   ├── mockConcerns.ts          # 14 realistic sample concern records
-│   │   └── mockNotifications.ts
-│   ├── lib/                         # Domain calculation & rule engines
-│   │   ├── priorityEngine.ts        # Rule-based priority advisor with explanation rationale
-│   │   ├── duplicateDetection.ts    # Rule-based duplicate detector (room + category + title)
-│   │   ├── formatting.ts            # Relative time, badge color mappings
-│   │   └── permissions.ts           # Role capabilities
-│   ├── services/                    # Service layer abstractions (ready for FastAPI API swap)
-│   │   ├── analyticsService.ts
-│   │   └── exportService.ts
-│   ├── store/                       # Reactive state & persistence
-│   │   ├── AuthContext.tsx
-│   │   └── FacilityCareContext.tsx
-│   ├── components/
-│   │   ├── common/                  # Badges, StatCards, Modals, ConfirmDialogs, EmptyStates
-│   │   ├── layout/                  # AppLayout, AuthLayout, Sidebar, Demo Role Switcher
-│   │   ├── concerns/                # TimelineView, RoomRepairHistory
-│   │   └── forms/                   # PhotoUploadZone, DuplicateWarningBanner, PriorityAdvisorCard
-│   └── pages/                       # Screen views
-│       ├── auth/                    # Login, Register
-│       ├── dashboard/               # Role-specific dashboard consoles
-│       ├── concerns/                # List, Detail, New Concern
-│       ├── tasks/                   # Technician task board & detail workspace
-│       ├── supervisor/              # Dispatch hub & Verification detail console
-│       ├── admin/                   # Users, Buildings, Rooms, Categories
-│       ├── analytics/               # Recharts dashboard
-│       ├── reports/                 # Filterable reports with CSV export
-│       ├── notifications/           # Notification center
-│       └── profile/                 # Profile & demo data reset
+│   ├── App.tsx                      # Route declarations & role guards
+│   ├── services/api/                # Axios/Fetch backend API client & endpoints
+│   ├── store/                       # AuthContext & FacilityCareContext
+│   ├── components/                  # Badges, Layout, ProtectedRoute, Forms
+│   └── pages/                       # Screens for all 5 roles
 ```
 
 ---
 
-## ⚡ Development & Build Commands
+## ⚡ Development & Running Instructions
+
+### 1. Backend Setup & Startup
 
 ```bash
+cd backend
+
+# Create virtual environment (Python 3.12)
+python -m venv .venv
+source .venv/bin/activate  # Or on Windows: .venv\Scripts\activate
+
 # Install dependencies
+pip install -r requirements.txt
+
+# Run migrations & seed data
+alembic upgrade head
+python -m app.db.seed
+
+# Start FastAPI server
+uvicorn app.main:app --reload --port 8000
+```
+API Documentation will be live at `http://localhost:8000/api/docs`.
+
+### 2. Frontend Setup & Startup
+
+```bash
+# In the repository root
 npm install
 
-# Start local development server
+# Start development server
 npm run dev
+```
+Frontend will be live at `http://localhost:5173`.
 
-# Run TypeScript compilation & Vite production build
+---
+
+## 🧪 Verification & Automated Testing
+
+```bash
+# 1. Run backend pytest suite (30 tests across Auth, RBAC, Concerns, Engines)
+backend\.venv\Scripts\pytest backend/tests -v
+
+# 2. Run frontend typecheck & production build
 npm run build
 
-# Preview production build locally
-npm run preview
+# 3. Run frontend linter
+npm run lint
 ```
 
 ---
 
-## 🔄 Resetting Demo Data
-At any point during testing or client demonstration, click the **Reset Data** button in the header toolbar or navigate to **Profile (`/profile`)** to restore pristine seed records.
+## 🚀 Deployment (Vercel)
+
+The frontend is fully configured for deployment on **Vercel**:
+- Configuration file: [`vercel.json`](file:///c:/code_vs/Faculty/vercel.json) handles SPA routing rewrites to `/index.html` and sets HTTP security headers.
+- Set environment variable on Vercel:
+  `VITE_API_BASE_URL=https://your-backend-api.domain.com/api/v1`

@@ -103,7 +103,6 @@ export function calculateCategoryStats(concerns: Concern[], categories: Facility
 
 export function calculateMonthlyTrends(concerns: Concern[]): MonthlyTrend[] {
   // Generate a realistic 6-month maintenance trend
-  const months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
   return [
     { month: 'Apr', reported: 12, resolved: 11 },
     { month: 'May', reported: 18, resolved: 16 },

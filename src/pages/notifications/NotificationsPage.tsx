@@ -10,7 +10,6 @@ import {
   Wrench,
   CheckCircle,
   AlertCircle,
-  ExternalLink,
   ChevronRight
 } from 'lucide-react';
 
