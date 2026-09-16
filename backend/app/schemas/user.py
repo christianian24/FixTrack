@@ -23,8 +23,8 @@ class UserCreate(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=80)
     email: EmailStr
     password: str = Field(..., min_length=8)
-    role: UserRoleType = "REPORTER"
-    user_type: UserTypeType = "STUDENT"
+    role: Literal["REPORTER"] = "REPORTER"
+    user_type: Literal["STUDENT", "FACULTY"] = "STUDENT"
     department: str | None = None
     phone: str | None = None
 
@@ -32,13 +32,17 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
-    department: str | None = None
     phone: str | None = None
-    avatar_url: str | None = None
+    department: str | None = None
 
 
-class UserAdminUpdate(UserUpdate):
+class UserAdminUpdate(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    phone: str | None = None
     role: UserRoleType | None = None
+    user_type: UserTypeType | None = None
+    department: str | None = None
     is_active: bool | None = None
 
 

@@ -74,7 +74,7 @@ export const LoginPage: React.FC = () => {
     if (user) {
       setLoading(true);
       try {
-        const err = await login(user.email);
+        const err = await login(user.email, 'demo1234');
         if (!err) {
           navigate('/dashboard');
         } else {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { ROLE_NAMES } from '../../lib/permissions';
+import { resolveApiUrl } from '../../services/api/client';
 import {
   Settings,
   Key,
@@ -20,6 +21,7 @@ export const SettingsPage: React.FC = () => {
   const { currentUser, currentRole, logout, isDemoMode, setDemoMode } = useAuth();
   const { resetDemoData } = useFacilityCare();
   const navigate = useNavigate();
+  const initials = `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`.toUpperCase();
 
   // Password state
   const [currPass, setCurrPass] = useState('');
@@ -295,17 +297,20 @@ export const SettingsPage: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <img
-              src={currentUser.avatar}
-              alt={currentUser.firstName}
-              className="w-11 h-11 rounded-full object-cover border-2 border-slate-200 shadow-sm"
-            />
+            {currentUser.avatar ? (
+              <img src={resolveApiUrl(currentUser.avatar)} alt={currentUser.firstName} className="w-11 h-11 rounded-full object-cover border-2 border-slate-200 shadow-sm" />
+            ) : (
+              <div className="w-11 h-11 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-sm font-bold border-2 border-sky-200">{initials}</div>
+            )}
             <div>
               <p className="text-sm font-bold text-slate-800">
                 {currentUser.firstName} {currentUser.lastName}
               </p>
               <p className="text-xs text-slate-500">
                 {currentUser.email} • <span className="font-semibold text-sky-700">{ROLE_NAMES[currentRole]}</span>
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {currentUser.userType}{currentUser.department ? ` • ${currentUser.department}` : ''} • {currentUser.status === 'ACTIVE' ? 'Active' : 'Inactive'}
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Active session on this browser

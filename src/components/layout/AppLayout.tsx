@@ -4,6 +4,7 @@ import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { ROLE_NAMES } from '../../lib/permissions';
 import { UserRole } from '../../types/user';
+import { resolveApiUrl } from '../../services/api/client';
 import {
   Wrench,
   LayoutDashboard,
@@ -20,7 +21,6 @@ import {
   Menu,
   X,
   RefreshCw,
-  ChevronDown,
   Sparkles,
   School,
   LogOut,
@@ -43,6 +43,19 @@ const ROLE_COLORS: Record<string, string> = {
   MAINTENANCE_PERSONNEL: 'bg-emerald-500',
   MAINTENANCE_SUPERVISOR: 'bg-indigo-500',
   ADMINISTRATOR: 'bg-rose-500',
+};
+
+const UserAvatar: React.FC<{ user: any; className: string }> = ({ user, className }) => {
+  const [failedAvatarKey, setFailedAvatarKey] = useState<string | null>(null);
+  const initials = `${user.firstName?.charAt(0) ?? ''}${user.lastName?.charAt(0) ?? ''}`.toUpperCase();
+  const avatarUrl = user.avatar ? resolveApiUrl(user.avatar) : undefined;
+  const avatarKey = `${user.id}:${user.avatar ?? ''}`;
+
+  if (!avatarUrl || failedAvatarKey === avatarKey) {
+    return <div className={`${className} bg-sky-100 text-sky-700 flex items-center justify-center font-semibold`}>{initials}</div>;
+  }
+
+  return <img src={avatarUrl} alt={user.firstName} onError={() => setFailedAvatarKey(avatarKey)} className={className} />;
 };
 
 interface SidebarContentProps {
@@ -92,11 +105,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     <div className="px-4 py-3 border-b border-slate-100">
       <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl">
         <div className="relative flex-shrink-0">
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.firstName}
-            className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm"
-          />
+          <UserAvatar user={currentUser} className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm text-xs" />
           <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${roleColor}`} />
         </div>
         <div className="min-w-0 flex-1">
@@ -202,20 +211,22 @@ export const AppLayout: React.FC = () => {
     currentUser,
     currentRole,
     isAuthenticated,
+    isLoading,
     isDemoMode,
     setDemoMode,
-    switchRole,
-    demoUsers,
     logout,
   } = useAuth();
   const { notifications, resetDemoData } = useFacilityCare();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   // If not authenticated, redirect to login page
+  if (isLoading) {
+    return <div className="p-8 text-center text-sm text-slate-500">Loading your FixTrack session…</div>;
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
@@ -340,7 +351,7 @@ export const AppLayout: React.FC = () => {
               </button>
               <div className="hidden sm:block">
                 <p className="text-xs text-slate-500">
-                  Welcome back, <span className="font-semibold text-slate-800">{currentUser.firstName}</span> 👋
+                  Welcome back, <span className="font-semibold text-slate-800">{currentUser.firstName}</span>
                 </p>
               </div>
             </div>
@@ -373,64 +384,6 @@ export const AppLayout: React.FC = () => {
                 </button>
               )}
 
-              {/* Persona Switcher (only active in Demo Mode) */}
-              {isDemoMode && (
-                <div className="relative">
-                  <button
-                    onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-                    id="switch-persona-btn"
-                    className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-xs text-slate-700 transition-all cursor-pointer"
-                  >
-                    <span className={`w-2 h-2 rounded-full ${roleColor}`} />
-                    <span className="font-medium">{ROLE_NAMES[currentRole]}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                  </button>
-
-                  {roleDropdownOpen && (
-                    <div
-                      className="absolute right-0 mt-2 w-72 rounded-2xl bg-white border border-slate-200 shadow-xl z-50 overflow-hidden"
-                      onClick={() => setRoleDropdownOpen(false)}
-                    >
-                      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3 text-sky-500" />
-                          Switch Persona
-                        </p>
-                      </div>
-                      <div className="p-2">
-                        {demoUsers.map((user) => {
-                          const isActive = currentUser.id === user.id;
-                          const uColor = ROLE_COLORS[user.role] || 'bg-sky-500';
-                          return (
-                            <button
-                              key={user.id}
-                              onClick={() => {
-                                switchRole(user.role);
-                                navigate('/dashboard');
-                              }}
-                              className={`w-full text-left px-3 py-2.5 rounded-xl text-sm flex items-center gap-3 transition-colors ${
-                                isActive
-                                  ? 'bg-sky-50 text-sky-800'
-                                  : 'text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${uColor}`} />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold truncate">{user.firstName} {user.lastName}</p>
-                                <p className="text-[10px] text-slate-500">{ROLE_NAMES[user.role]}</p>
-                              </div>
-                              {isActive && (
-                                <span className="text-[10px] font-semibold text-sky-600 bg-sky-100 px-2 py-0.5 rounded-full">Active</span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Notifications */}
               <Link
                 to="/notifications"
@@ -447,11 +400,7 @@ export const AppLayout: React.FC = () => {
 
               {/* Avatar Link to Profile */}
               <Link to="/profile" className="flex items-center gap-2 group" title="My Profile">
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser.firstName}
-                  className="w-9 h-9 rounded-full object-cover border-2 border-slate-200 group-hover:border-sky-300 transition-colors"
-                />
+                <UserAvatar user={currentUser} className="w-9 h-9 rounded-full object-cover border-2 border-slate-200 group-hover:border-sky-300 transition-colors text-xs" />
               </Link>
             </div>
           </div>

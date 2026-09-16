@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,10 +40,11 @@ async def mark_read(
         .where(Notification.id == notif_id, Notification.user_id == current_user.id)
     )
     notif = result.scalar_one_or_none()
-    if notif:
-        notif.is_read = True
-        await db.flush()
-        await db.refresh(notif)
+    if notif is None:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notif.is_read = True
+    await db.flush()
+    await db.refresh(notif)
     return NotificationResponse.model_validate(notif)
 
 
@@ -58,3 +59,4 @@ async def mark_all_read(
     )
     for notif in result.scalars():
         notif.is_read = True
+    await db.flush()

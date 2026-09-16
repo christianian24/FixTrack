@@ -20,7 +20,7 @@ export const mockUsers: User[] = [
     id: 'user-reporter-faculty',
     firstName: 'Maria',
     lastName: 'Santos',
-    email: 'maria.santos@school.edu',
+    email: 'maria.faculty@school.edu',
     role: 'REPORTER',
     userType: 'FACULTY',
     phone: '+1 (555) 345-6782',

@@ -2,62 +2,60 @@ import { apiClient } from './client';
 
 export interface ConcernCreateRequest {
   title: string;
-  description: string;
-  category_id: string;
-  building_id: string;
-  room_id: string;
-  safety_risk: boolean;
-  affected_users: number;
-  priority?: string;
+  description?: string;
+  category_id?: string;
+  room_id?: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  is_safety_hazard: boolean;
+  affects_many_people: boolean;
+  is_recurring?: boolean;
 }
 
 export interface ConcernRead {
   id: string;
-  report_number: string;
+  tracking_number: string;
   title: string;
   description: string;
   status: string;
   priority: string;
-  safety_risk: boolean;
-  affected_users: number;
-  reporter_id: string;
-  reporter_name: string;
-  category_id: string;
-  category_name: string;
-  building_id: string;
-  building_name: string;
-  room_id: string;
-  room_name: string;
-  assigned_personnel_id: string | null;
-  assigned_personnel_name: string | null;
-  repair_notes: string | null;
+  priority_score?: number;
+  is_safety_hazard: boolean;
+  affects_many_people: boolean;
+  is_recurring?: boolean;
+  reporter_id: string | null;
+  assigned_to_id: string | null;
+  category_id: string | null;
+  room_id: string | null;
+  submitted_at: string;
+  updated_at: string;
+  resolution_notes?: string | null;
   rejection_reason: string | null;
+  estimated_cost?: number | null;
+  assigned_at?: string | null;
+  started_at?: string | null;
   completed_at: string | null;
   verified_at: string | null;
   closed_at: string | null;
-  created_at: string;
-  updated_at: string;
-  photos: ConcernPhoto[];
-  timeline: TimelineEvent[];
+  photos?: ConcernPhoto[];
+  timeline_events?: TimelineEvent[];
 }
 
 export interface ConcernPhoto {
   id: string;
-  concern_id: string;
-  photo_url: string;
-  photo_type: 'BEFORE' | 'DURING' | 'AFTER';
-  caption: string | null;
+  url: string;
+  filename: string | null;
+  is_completion_photo: boolean;
+  uploaded_at: string;
 }
 
 export interface TimelineEvent {
   id: string;
-  actor_id: string;
-  actor_name: string;
-  action: string;
-  notes: string | null;
-  status_before: string | null;
-  status_after: string | null;
+  event_type: string;
+  old_status: string | null;
+  new_status: string | null;
+  note: string | null;
   created_at: string;
+  actor_id: string | null;
 }
 
 export interface DuplicateWarning {
@@ -85,6 +83,10 @@ export const concernsApi = {
     return apiClient.get<ConcernRead>(`/concerns/${id}`);
   },
 
+  update(id: string, data: { priority?: string }): Promise<ConcernRead> {
+    return apiClient.patch<ConcernRead>(`/concerns/${id}`, data);
+  },
+
   create(data: ConcernCreateRequest): Promise<ConcernRead> {
     return apiClient.post<ConcernRead>('/concerns', data);
   },
@@ -94,30 +96,48 @@ export const concernsApi = {
   },
 
   assign(id: string, data: { personnel_id: string; scheduled_date?: string; notes?: string }): Promise<ConcernRead> {
-    return apiClient.post<ConcernRead>(`/concerns/${id}/assign`, data);
+    return apiClient.post<ConcernRead>(`/concerns/${id}/assign`, {
+      assigned_to_id: data.personnel_id,
+      note: data.notes,
+    });
   },
 
   start(id: string, notes?: string): Promise<ConcernRead> {
-    return apiClient.post<ConcernRead>(`/concerns/${id}/start`, { notes });
+    return apiClient.post<ConcernRead>(`/concerns/${id}/start`, { note: notes });
   },
 
   hold(id: string, reason: string): Promise<ConcernRead> {
-    return apiClient.post<ConcernRead>(`/concerns/${id}/hold`, { reason });
+    return apiClient.post<ConcernRead>(`/concerns/${id}/hold`, { note: reason });
   },
 
   complete(id: string, data: { repair_notes: string }): Promise<ConcernRead> {
-    return apiClient.post<ConcernRead>(`/concerns/${id}/complete`, data);
+    return apiClient.post<ConcernRead>(`/concerns/${id}/complete`, {
+      resolution_notes: data.repair_notes,
+    });
   },
 
   verify(id: string, notes?: string): Promise<ConcernRead> {
-    return apiClient.post<ConcernRead>(`/concerns/${id}/verify`, { notes });
+    return apiClient.post<ConcernRead>(`/concerns/${id}/verify`, { note: notes });
   },
 
   reject(id: string, reason: string): Promise<ConcernRead> {
-    return apiClient.post<ConcernRead>(`/concerns/${id}/reject`, { reason });
+    return apiClient.post<ConcernRead>(`/concerns/${id}/reject`, { rejection_reason: reason });
   },
 
   close(id: string, notes?: string): Promise<ConcernRead> {
-    return apiClient.post<ConcernRead>(`/concerns/${id}/close`, { notes });
+    return apiClient.post<ConcernRead>(`/concerns/${id}/close`, { note: notes });
+  },
+
+  uploadPhoto(id: string, file: File, isCompletionPhoto = false): Promise<ConcernPhoto> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.upload<ConcernPhoto>(
+      `/uploads/photo?concern_id=${encodeURIComponent(id)}&is_completion_photo=${isCompletionPhoto}`,
+      formData,
+    );
+  },
+
+  deletePhoto(photoId: string): Promise<void> {
+    return apiClient.delete<void>(`/uploads/photo/${encodeURIComponent(photoId)}`);
   },
 };

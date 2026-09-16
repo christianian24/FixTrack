@@ -4,6 +4,7 @@ import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { PhotoGallery } from '../../components/common/PhotoGallery';
+import { PhotoUploadZone } from '../../components/forms/PhotoUploadZone';
 import { TimelineView } from '../../components/concerns/TimelineView';
 import { RoomRepairHistory } from '../../components/concerns/RoomRepairHistory';
 import { Modal } from '../../components/common/Modal';
@@ -35,14 +36,14 @@ const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <label className="block text-xs font-semibold text-slate-700 mb-1.5">{children}</label>
 );
 
-const ModalFooterBtn: React.FC<{ type?: 'button' | 'submit'; variant?: 'primary' | 'secondary' | 'success'; onClick?: () => void; children: React.ReactNode }> =
-  ({ type = 'button', variant = 'secondary', onClick, children }) => {
+const ModalFooterBtn: React.FC<{ type?: 'button' | 'submit'; variant?: 'primary' | 'secondary' | 'success'; onClick?: () => void; disabled?: boolean; children: React.ReactNode }> =
+  ({ type = 'button', variant = 'secondary', onClick, disabled = false, children }) => {
     const cls =
       variant === 'primary'   ? 'bg-sky-500 hover:bg-sky-600 text-white' :
       variant === 'success'   ? 'bg-emerald-500 hover:bg-emerald-600 text-white' :
       'bg-slate-100 hover:bg-slate-200 text-slate-700';
     return (
-      <button type={type} onClick={onClick} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${cls}`}>
+      <button type={type} onClick={onClick} disabled={disabled} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${cls}`}>
         {children}
       </button>
     );
@@ -51,13 +52,15 @@ const ModalFooterBtn: React.FC<{ type?: 'button' | 'submit'; variant?: 'primary'
 export const ConcernDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { currentUser, currentRole } = useAuth();
-  const { concerns, users, assignConcern, updateConcernStatus, verifyConcern, updatePriority } = useFacilityCare();
+  const { concerns, users, assignConcern, updateConcernStatus, uploadConcernPhoto, deleteConcernPhoto, verifyConcern, updatePriority } = useFacilityCare();
 
   const concern = concerns.find(c => c.id === id);
 
   const [assignModalOpen, setAssignModalOpen]   = useState(false);
   const [priorityModalOpen, setPriorityModalOpen] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [completionSubmitting, setCompletionSubmitting] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
 
   const [selectedTechId, setSelectedTechId]   = useState('');
   const [scheduledDate, setScheduledDate]     = useState('2026-09-15');
@@ -66,9 +69,8 @@ export const ConcernDetailPage: React.FC = () => {
   const [newPriority, setNewPriority]                   = useState<ConcernPriority>('HIGH');
   const [priorityOverrideReason, setPriorityOverrideReason] = useState('');
   const [repairCompletionNotes, setRepairCompletionNotes]   = useState('');
-  const [completionPhotoUrl, setCompletionPhotoUrl] = useState(
-    'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80',
-  );
+  const [completionPhotoFile, setCompletionPhotoFile] = useState<File | null>(null);
+  const [completionPhotoPreviews, setCompletionPhotoPreviews] = useState<string[]>([]);
 
   if (!concern) {
     return (
@@ -98,11 +100,38 @@ export const ConcernDetailPage: React.FC = () => {
     setPriorityModalOpen(false);
   };
 
-  const handleCompleteSubmit = (e: React.FormEvent) => {
+  const handleCompleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!repairCompletionNotes) return;
-    updateConcernStatus(concern.id, 'COMPLETED', repairCompletionNotes, completionPhotoUrl, currentUser);
-    setCompleteModalOpen(false);
+    if (repairCompletionNotes.trim().length < 10) {
+      setCompletionError('Resolution notes must be at least 10 characters.');
+      return;
+    }
+    if (!completionPhotoFile) {
+      setCompletionError('Select a completion evidence file before submitting.');
+      return;
+    }
+    setCompletionError(null);
+    setCompletionSubmitting(true);
+    let uploadedPhotoId: string | null = null;
+    try {
+      const uploadedPhoto = await uploadConcernPhoto(concern.id, completionPhotoFile, true);
+      uploadedPhotoId = uploadedPhoto.id;
+      await updateConcernStatus(concern.id, 'COMPLETED', repairCompletionNotes, undefined, currentUser);
+      setCompleteModalOpen(false);
+      setCompletionPhotoFile(null);
+      setCompletionPhotoPreviews([]);
+    } catch (error) {
+      if (uploadedPhotoId) {
+        try {
+          await deleteConcernPhoto(concern.id, uploadedPhotoId);
+        } catch {
+          // Keep the original completion error visible if compensation fails.
+        }
+      }
+      setCompletionError(error instanceof Error ? error.message : 'Completion failed. Please try again.');
+    } finally {
+      setCompletionSubmitting(false);
+    }
   };
 
   const handleStartRepair = () =>
@@ -277,7 +306,17 @@ export const ConcernDetailPage: React.FC = () => {
 
           {/* Photos */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <PhotoGallery beforePhotos={concern.beforePhotos} afterPhotos={concern.afterPhotos} />
+            <PhotoGallery
+              beforePhotos={concern.beforePhotos}
+              afterPhotos={concern.afterPhotos}
+              photoRecords={concern.photoRecords}
+              canDelete={concern.status !== 'CLOSED' && (
+                (currentRole === 'MAINTENANCE_PERSONNEL' && concern.assignedPersonnelId === currentUser.id) ||
+                currentRole === 'MAINTENANCE_SUPERVISOR' ||
+                currentRole === 'ADMINISTRATOR'
+              )}
+              onDelete={(photoId) => deleteConcernPhoto(concern.id, photoId)}
+            />
           </div>
         </div>
 
@@ -345,15 +384,25 @@ export const ConcernDetailPage: React.FC = () => {
             <textarea rows={3} required value={repairCompletionNotes} onChange={(e) => setRepairCompletionNotes(e.target.value)} placeholder="Detail what was done, parts replaced, tests performed…" className="input-base" />
           </div>
           <div>
-            <FieldLabel>Completion Photo URL</FieldLabel>
-            <input type="url" value={completionPhotoUrl} onChange={(e) => setCompletionPhotoUrl(e.target.value)} className="input-base" />
-            <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-              <img src={completionPhotoUrl} alt="Completion preview" className="w-full h-full object-cover" />
-            </div>
+            <FieldLabel>Completion Evidence *</FieldLabel>
+            <p className="text-xs text-slate-500 mb-2">Upload a photo of the completed repair.</p>
+            <PhotoUploadZone
+              photos={completionPhotoPreviews}
+              maxPhotos={1}
+              onChange={(photos) => {
+                setCompletionPhotoPreviews(photos);
+                if (photos.length === 0) setCompletionPhotoFile(null);
+              }}
+              onFiles={(files) => {
+                setCompletionPhotoFile(files[0] ?? null);
+                setCompletionError(null);
+              }}
+            />
           </div>
+          {completionError && <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">{completionError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <ModalFooterBtn onClick={() => setCompleteModalOpen(false)}>Cancel</ModalFooterBtn>
-            <ModalFooterBtn type="submit" variant="success">Submit for Verification</ModalFooterBtn>
+            <ModalFooterBtn type="submit" variant="success" disabled={completionSubmitting}>{completionSubmitting ? 'Submitting...' : 'Submit for Verification'}</ModalFooterBtn>
           </div>
         </form>
       </Modal>

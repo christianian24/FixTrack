@@ -107,8 +107,6 @@ const STATUS_STEPS = [
 export const DashboardPage: React.FC = () => {
   const { currentUser, currentRole } = useAuth();
   const { concerns, buildings } = useFacilityCare();
-  const todayStr = new Date().toISOString().split('T')[0];
-
   const greeting = () => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
@@ -131,7 +129,7 @@ export const DashboardPage: React.FC = () => {
         {/* Welcome banner */}
         <div className="bg-gradient-to-r from-sky-500 to-sky-600 rounded-2xl p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm shadow-sky-200">
           <div>
-            <p className="text-sky-100 text-sm">{greeting()}, {currentUser.firstName} 👋</p>
+            <p className="text-sky-100 text-sm">{greeting()}, {currentUser.firstName}</p>
             <h1 className="text-xl font-bold mt-0.5">{(currentUser as any).department ?? 'School Facility Portal'}</h1>
             <p className="text-sky-100 text-sm mt-1">Track and manage your facility concern reports below.</p>
           </div>
@@ -275,7 +273,7 @@ export const DashboardPage: React.FC = () => {
     const pendingAcceptance = myTasks.filter(c => c.status === 'ASSIGNED');
     const completedTasks    = myTasks.filter(c => c.status === 'COMPLETED' || c.status === 'CLOSED');
     const highPriority      = myTasks.filter(c => (c.priority === 'CRITICAL' || c.priority === 'HIGH') && c.status !== 'CLOSED');
-    const todayTasks        = myTasks.filter(c => c.scheduledDate === todayStr && !['COMPLETED','CLOSED'].includes(c.status));
+    const activeTasks       = myTasks.filter(c => ['ASSIGNED', 'IN_PROGRESS', 'WAITING_FOR_MATERIALS'].includes(c.status));
     const openTasks         = myTasks.filter(c => !['COMPLETED','CLOSED'].includes(c.status));
     const weeklyData = [
       { day: 'Mon', done: 2 }, { day: 'Tue', done: 4 }, { day: 'Wed', done: 1 },
@@ -288,7 +286,7 @@ export const DashboardPage: React.FC = () => {
         {/* Banner */}
         <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm shadow-emerald-200">
           <div>
-            <p className="text-emerald-100 text-sm">{greeting()}, {currentUser.firstName} 👋</p>
+            <p className="text-emerald-100 text-sm">{greeting()}, {currentUser.firstName}</p>
             <h1 className="text-xl font-bold mt-0.5">My Maintenance Tasks</h1>
             <p className="text-emerald-100 text-sm mt-1">{openTasks.length > 0 ? `${openTasks.length} open work order${openTasks.length > 1 ? 's' : ''} — ${highPriority.length} high/critical.` : 'All tasks complete — great job! 🎉'}</p>
           </div>
@@ -305,24 +303,24 @@ export const DashboardPage: React.FC = () => {
           <StatCard title="Completed"     value={completedTasks.length}  icon={CheckCircle2} subtitle="Awaiting sign-off"    iconBgColor="bg-emerald-50" iconColor="text-emerald-600" />
         </div>
 
-        {/* Today's schedule + Quick actions */}
+        {/* Active work + Quick actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <Section className="lg:col-span-2">
             <SectionHeader
-              title="Today's Schedule"
-              subtitle={todayTasks.length > 0 ? `${todayTasks.length} task${todayTasks.length > 1 ? 's' : ''} scheduled for today` : 'No tasks scheduled for today'}
+              title="Active Work"
+              subtitle={activeTasks.length > 0 ? `${activeTasks.length} active task${activeTasks.length > 1 ? 's' : ''}` : 'No active work'}
               action={<Link to="/tasks" className="text-xs font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1">All Tasks <ArrowRight className="w-3.5 h-3.5" /></Link>}
             />
-            {todayTasks.length === 0 ? (
+            {activeTasks.length === 0 ? (
               <div className="py-8 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-3"><CalendarDays className="w-7 h-7 text-emerald-300" /></div>
-                <p className="text-sm text-slate-500 font-medium">No tasks scheduled today</p>
+                <p className="text-sm text-slate-500 font-medium">No active work</p>
                 <p className="text-xs text-slate-400 mt-1">Check the work order queue for pending tasks</p>
                 <Link to="/tasks" className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 rounded-xl bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 transition-colors"><CheckSquare className="w-3.5 h-3.5" /> View Work Queue</Link>
               </div>
             ) : (
               <div className="space-y-2">
-                {todayTasks.map(task => (
+                {activeTasks.map(task => (
                   <div key={task.id} className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${task.priority === 'CRITICAL' ? 'bg-rose-50 border-rose-100' : task.priority === 'HIGH' ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
                     <div className="min-w-0 space-y-0.5">
                       <div className="flex items-center gap-2"><span className="text-xs font-semibold text-slate-500">#{task.reportNumber}</span><span className="text-xs text-slate-400">{task.buildingName} · {task.roomName}</span></div>
@@ -441,11 +439,11 @@ export const DashboardPage: React.FC = () => {
         {/* Banner */}
         <div className="bg-gradient-to-r from-indigo-500 to-violet-500 rounded-2xl p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm shadow-indigo-200">
           <div>
-            <p className="text-indigo-100 text-sm">{greeting()}, {currentUser.firstName} 👋</p>
+            <p className="text-indigo-100 text-sm">{greeting()}, {currentUser.firstName}</p>
             <h1 className="text-xl font-bold mt-0.5">Maintenance Supervisor Overview</h1>
             <p className="text-indigo-100 text-sm mt-1">
               {criticalConcerns.length > 0
-                ? `⚠️ ${criticalConcerns.length} critical concern${criticalConcerns.length > 1 ? 's' : ''} require immediate dispatch.`
+                ? `${criticalConcerns.length} critical concern${criticalConcerns.length > 1 ? 's' : ''} require immediate dispatch.`
                 : 'Campus operations normal — triage, dispatch, and verify repairs below.'}
             </p>
           </div>
@@ -662,10 +660,10 @@ export const DashboardPage: React.FC = () => {
       {/* Admin banner */}
       <div className="bg-gradient-to-r from-rose-500 to-pink-500 rounded-2xl p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm shadow-rose-200">
         <div>
-          <p className="text-rose-100 text-sm">{greeting()}, {currentUser.firstName} 👋</p>
+          <p className="text-rose-100 text-sm">{greeting()}, {currentUser.firstName}</p>
           <h1 className="text-xl font-bold mt-0.5">Facility Management Overview</h1>
           <p className="text-rose-100 text-sm mt-1">
-            {critical > 0 ? `⚠️ ${critical} critical concern${critical > 1 ? 's' : ''} require immediate attention.` : `Campus resolution rate: ${completionRate}% — ${total} total concerns tracked.`}
+            {critical > 0 ? `${critical} critical concern${critical > 1 ? 's' : ''} require immediate attention.` : `Campus resolution rate: ${completionRate}% — ${total} total concerns tracked.`}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

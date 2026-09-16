@@ -17,7 +17,7 @@ import React, {
 
 import { User, UserRole } from '../types/user';
 import { mockUsers } from '../data/mockUsers';
-import { authApi, MeResponse } from '../services/api/authApi';
+import { authApi, MeResponse, RegisterRequest } from '../services/api/authApi';
 import { clearToken, getToken } from '../services/api/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -34,6 +34,8 @@ interface AuthContextType {
   toggleDemoMode: () => void;
   /** Real email + password login (returns error string on failure) */
   login: (email: string, password?: string) => Promise<string | null>;
+  register: (data: RegisterRequest) => Promise<string | null>;
+  refreshCurrentUser: () => Promise<void>;
   /** Instantly switch to a demo persona (uses backend demo endpoint) */
   loginAsDemoUser: (identifier: string) => Promise<void>;
   /** Legacy switch for demo role-switcher panel */
@@ -48,6 +50,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_STORAGE_KEY = 'facilitycare_active_user_v1';
 const DEMO_MODE_STORAGE_KEY = 'facilitycare_demo_mode_v1';
+const EMPTY_USER: User = {
+  id: '',
+  firstName: '',
+  lastName: '',
+  email: '',
+  role: 'REPORTER',
+  userType: 'STUDENT',
+  status: 'INACTIVE',
+  createdAt: '',
+  updatedAt: '',
+};
 
 // Converts backend MeResponse → frontend User shape
 function mapMe(me: MeResponse): User {
@@ -61,7 +74,7 @@ function mapMe(me: MeResponse): User {
     department: me.department ?? undefined,
     phone: me.phone ?? undefined,
     avatar: me.avatar_url ?? undefined,
-    status: me.status as User['status'],
+    status: me.is_active ? 'ACTIVE' : 'INACTIVE',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -80,9 +93,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isDemoMode, setIsDemoModeState] = useState<boolean>(() => {
     try {
       const s = localStorage.getItem(DEMO_MODE_STORAGE_KEY);
-      return s !== null ? s === 'true' : true;
+      return s !== null ? s === 'true' : false;
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -90,19 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const [currentUser, setCurrentUser] = useState<User>(() => {
+    if (isOffline) return mockUsers[0];
     try {
-      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as User;
-        const match = mockUsers.find(
-          (u) => u.id === parsed.id || u.email === parsed.email
-        );
-        return match ?? parsed;
-      }
+      localStorage.removeItem(AUTH_STORAGE_KEY);
     } catch {
       /* ignore */
     }
-    return mockUsers[0];
+    return EMPTY_USER;
   });
 
   // ── On mount: try to hydrate from existing token ─────────────────────────
@@ -135,11 +142,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     try {
+      if (!isAuthenticated && !isOffline) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        return;
+      }
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
     } catch {
       /* ignore */
     }
-  }, [currentUser]);
+  }, [currentUser, isAuthenticated, isOffline]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -164,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const trimmed = email.trim().toLowerCase();
 
       // ── Offline / demo fallback ────────────────────────────────────────
-      if (isOffline || !password) {
+      if (isOffline) {
         const user = mockUsers.find(
           (u) => u.email.toLowerCase() === trimmed
         );
@@ -199,6 +210,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return 'Invalid email address.';
       }
 
+      if (!password) {
+        return 'Password is required.';
+      }
+
       // ── Real backend login ─────────────────────────────────────────────
       try {
         await authApi.login({ email: trimmed, password });
@@ -213,6 +228,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     [isOffline]
   );
+
+  const register = useCallback(
+    async (data: RegisterRequest): Promise<string | null> => {
+      if (isOffline) return 'Registration requires the connected local backend.';
+
+      try {
+        await authApi.register(data);
+        const me = await authApi.me();
+        const user = mapMe(me);
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        return null;
+      } catch (err) {
+        return err instanceof Error ? err.message : 'Registration failed.';
+      }
+    },
+    [isOffline]
+  );
+
+  const refreshCurrentUser = useCallback(async (): Promise<void> => {
+    const me = await authApi.me();
+    const user = mapMe(me);
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  }, []);
 
   const loginAsDemoUser = useCallback(
     async (identifier: string): Promise<void> => {
@@ -238,17 +278,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setCurrentUser(mapMe(me));
         setIsAuthenticated(true);
       } catch {
-        // Fallback to mock if backend not available yet
-        const user = mockUsers.find(
-          (u) =>
-            u.id === identifier ||
-            u.role === identifier ||
-            u.userType === identifier
-        );
-        if (user) {
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-        }
+        setIsAuthenticated(false);
       }
     },
     [isOffline]
@@ -268,8 +298,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = () => {
     authApi.logout(); // clears JWT from localStorage
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
     setIsAuthenticated(false);
-    setCurrentUser(mockUsers[0]);
+    setCurrentUser(EMPTY_USER);
   };
 
   return (
@@ -284,6 +319,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setDemoMode,
         toggleDemoMode,
         login,
+        register,
+        refreshCurrentUser,
         loginAsDemoUser,
         switchRole,
         logout,

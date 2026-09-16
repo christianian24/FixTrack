@@ -25,19 +25,28 @@ USERS = [
     {"id": "usr_student_001", "first_name": "Alex", "last_name": "Rivera",
      "email": "alex.student@school.edu", "password": "demo1234",
      "role": "REPORTER", "user_type": "STUDENT",
-     "department": "Computer Science", "phone": "+63 912 345 6789"},
-    {"id": "usr_faculty_002", "first_name": "Dr. Maria", "last_name": "Santos",
+    "department": "Computer Science", "phone": "+63 912 345 6789"},
+
+    {"id": "usr_faculty_002", "first_name": "Maria", "last_name": "Santos",
      "email": "maria.faculty@school.edu", "password": "demo1234",
      "role": "REPORTER", "user_type": "FACULTY",
      "department": "College of Engineering", "phone": "+63 917 234 5678"},
+
     {"id": "usr_tech_003", "first_name": "Juan", "last_name": "Dela Cruz",
      "email": "juan.tech@school.edu", "password": "demo1234",
      "role": "MAINTENANCE_PERSONNEL", "user_type": "MAINTENANCE",
      "department": "Physical Plant Office", "phone": "+63 918 345 6780"},
+
+    {"id": "usr_tech_006", "first_name": "Robert", "last_name": "Taylor",
+     "email": "robert.taylor@school.edu", "password": "demo1234",
+     "role": "MAINTENANCE_PERSONNEL", "user_type": "MAINTENANCE",
+     "department": "Physical Plant Office", "phone": "+63 918 345 6781"},
+
     {"id": "usr_super_004", "first_name": "Engr. Carlos", "last_name": "Mendoza",
      "email": "carlos.supervisor@school.edu", "password": "demo1234",
      "role": "MAINTENANCE_SUPERVISOR", "user_type": "SUPERVISOR",
      "department": "Physical Plant Office", "phone": "+63 919 456 7891"},
+
     {"id": "usr_admin_005", "first_name": "Elena", "last_name": "Vance",
      "email": "elena.admin@school.edu", "password": "demo1234",
      "role": "ADMINISTRATOR", "user_type": "ADMINISTRATOR",
@@ -195,7 +204,21 @@ async def run_seed():
     async with async_session_factory() as db:
         result = await db.execute(select(User).limit(1))
         if result.scalar_one_or_none():
-            print("[INFO] Database already seeded - skipping.")
+            existing_result = await db.execute(select(User.email))
+            existing_emails = {email.lower() for (email,) in existing_result}
+            missing_users = [
+                user for user in USERS
+                if user["email"].lower() not in existing_emails
+            ]
+            for user in missing_users:
+                db.add(User(
+                    id=user["id"], first_name=user["first_name"], last_name=user["last_name"],
+                    email=user["email"].lower(), hashed_password=hash_password(user["password"]),
+                    role=user["role"], user_type=user["user_type"],
+                    department=user["department"], phone=user["phone"], is_active=True,
+                ))
+            await db.commit()
+            print(f"[INFO] Database already seeded - added {len(missing_users)} missing demo users.")
             return
 
         print("[START] Seeding database...")

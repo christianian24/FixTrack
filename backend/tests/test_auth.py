@@ -90,3 +90,18 @@ async def test_register_duplicate_email(client: AsyncClient, student_user):
         },
     )
     assert resp.status_code == 409
+
+
+async def test_public_registration_cannot_create_privileged_role(client: AsyncClient):
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "first_name": "Attempted",
+            "last_name": "Technician",
+            "email": "attempted.tech@school.edu",
+            "password": "securepass123",
+            "role": "MAINTENANCE_PERSONNEL",
+            "user_type": "MAINTENANCE",
+        },
+    )
+    assert resp.status_code == 422

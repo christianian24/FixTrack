@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
@@ -8,6 +8,7 @@ import { PriorityAdvisorCard } from '../../components/forms/PriorityAdvisorCard'
 import { calculateRecommendedPriority } from '../../lib/priorityEngine';
 import { checkForDuplicateConcern } from '../../lib/duplicateDetection';
 import { ConcernPriority, SafetyRisk, AffectedUsers } from '../../types/concern';
+import { ApiError } from '../../services/api/client';
 import {
   FilePlus2,
   ArrowLeft,
@@ -41,9 +42,39 @@ const FieldLabel: React.FC<{ label: string; required?: boolean; icon?: React.Rea
   </label>
 );
 
+const getSubmitErrors = (error: unknown): Record<string, string> => {
+  if (!(error instanceof ApiError) || error.status !== 422) {
+    return { submit: "We couldn't submit your concern right now. Please try again." };
+  }
+
+  const details = Array.isArray(error.detail) ? error.detail : [];
+  const fieldErrors: Record<string, string> = {};
+
+  details.forEach((detail) => {
+    if (!detail || typeof detail !== 'object') return;
+
+    const item = detail as { loc?: unknown; type?: unknown };
+    const location = Array.isArray(item.loc) ? item.loc : [];
+    const field = location.at(-1);
+    if (typeof field !== 'string') return;
+
+    if (field === 'description' && item.type === 'string_too_short') {
+      fieldErrors.description = 'Please provide at least 10 characters describing the concern.';
+    } else if (field === 'title' && item.type === 'string_too_short') {
+      fieldErrors.title = 'Please provide a longer concern title.';
+    } else if (field === 'title' || field === 'description') {
+      fieldErrors[field] = 'Please check this field and correct the invalid information.';
+    }
+  });
+
+  return Object.keys(fieldErrors).length > 0
+    ? fieldErrors
+    : { submit: 'Please check the form fields and correct the invalid information.' };
+};
+
 export const NewConcernPage: React.FC = () => {
   const { currentUser } = useAuth();
-  const { concerns, buildings, rooms, categories, createConcern } = useFacilityCare();
+  const { concerns, buildings, rooms, categories, createConcern, uploadConcernPhoto } = useFacilityCare();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
@@ -58,10 +89,28 @@ export const NewConcernPage: React.FC = () => {
   const [safetyRisk, setSafetyRisk] = useState<SafetyRisk>('NONE');
   const [affectedUsers, setAffectedUsers] = useState<AffectedUsers>('CLASS');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [manualPriority, setManualPriority] = useState<ConcernPriority | null>(null);
   const [duplicateIgnored, setDuplicateIgnored] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!categoryId && categories[0]) setCategoryId(categories[0].id);
+  }, [categories, categoryId]);
+
+  useEffect(() => {
+    if (!buildings.some((building) => building.id === buildingId)) {
+      setBuildingId(buildings[0]?.id || '');
+    }
+  }, [buildings, buildingId]);
+
+  useEffect(() => {
+    const firstActiveRoom = rooms.find((room) => room.buildingId === buildingId && room.status === 'ACTIVE');
+    if (!rooms.some((room) => room.id === roomId && room.buildingId === buildingId)) {
+      setRoomId(firstActiveRoom?.id || '');
+    }
+  }, [rooms, buildingId, roomId]);
 
   const selectedCategory = useMemo(() => categories.find(c => c.id === categoryId), [categories, categoryId]);
   const selectedBuilding  = useMemo(() => buildings.find(b => b.id === buildingId), [buildings, buildingId]);
@@ -91,13 +140,15 @@ export const NewConcernPage: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
     if (duplicateResult.isDuplicate && !duplicateIgnored) return;
     setIsSubmitting(true);
+    setFormErrors({});
 
-    const newConcern = createConcern({
+    try {
+      const newConcern = await createConcern({
       title: title.trim(),
       description: description.trim(),
       reporterId: currentUser.id,
@@ -117,14 +168,17 @@ export const NewConcernPage: React.FC = () => {
       affectedUsers,
       duplicateCount: duplicateResult.isDuplicate ? 1 : 0,
       duplicateOfId: duplicateResult.matchedConcern?.id,
-      beforePhotos: photos,
+      beforePhotos: [],
       afterPhotos: [],
-    });
+      });
 
-    setTimeout(() => {
+      await Promise.all(photoFiles.map((file) => uploadConcernPhoto(newConcern.id, file)));
       setIsSubmitting(false);
       navigate(`/concerns/${newConcern.id}`);
-    }, 300);
+    } catch (error) {
+      setIsSubmitting(false);
+      setFormErrors(getSubmitErrors(error));
+    }
   };
 
   return (
@@ -274,7 +328,8 @@ export const NewConcernPage: React.FC = () => {
         {/* Step 4: Photos */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
           <StepHeader step={4} title="Photo Evidence" subtitle="Upload photos of the issue (optional but strongly recommended)." />
-          <PhotoUploadZone photos={photos} onChange={setPhotos} maxPhotos={4} />
+          <PhotoUploadZone photos={photos} onChange={setPhotos} onFiles={setPhotoFiles} maxPhotos={4} />
+          {formErrors.submit && <p className="text-sm text-rose-600">{formErrors.submit}</p>}
         </div>
 
         {/* Submit bar */}

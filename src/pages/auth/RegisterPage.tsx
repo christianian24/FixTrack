@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useFacilityCare } from '../../store/FacilityCareContext';
 import { useAuth } from '../../store/AuthContext';
 import { UserCheck, ArrowLeft, Shield, School } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
-  const { addUser } = useFacilityCare();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -29,19 +27,22 @@ export const RegisterPage: React.FC = () => {
       return;
     }
 
-    addUser({
-      firstName: formData.firstName,
-      lastName: formData.lastName,
+    const registrationError = await register({
+      first_name: formData.firstName,
+      last_name: formData.lastName,
       email: formData.email,
-      phone: formData.phone,
-      department: formData.department,
+      password: formData.password,
       role: 'REPORTER',
-      userType: formData.userType,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      status: 'ACTIVE'
+      user_type: formData.userType,
+      department: formData.department,
+      phone: formData.phone,
     });
 
-    await login(formData.email, formData.password);
+    if (registrationError) {
+      setError(registrationError);
+      return;
+    }
+
     navigate('/dashboard');
   };
 

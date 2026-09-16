@@ -2,12 +2,12 @@ import { apiClient } from './client';
 
 export interface NotificationRead {
   id: string;
+  user_id: string;
   title: string;
   message: string;
   type: string;
   concern_id: string | null;
-  report_number: string | null;
-  read: boolean;
+  is_read: boolean;
   created_at: string;
 }
 
@@ -17,10 +17,10 @@ export const notificationsApi = {
   },
 
   markRead(id: string): Promise<NotificationRead> {
-    return apiClient.patch<NotificationRead>(`/notifications/${id}/read`);
+    return apiClient.post<NotificationRead>(`/notifications/${id}/read`);
   },
 
   markAllRead(): Promise<{ updated: number }> {
-    return apiClient.post<{ updated: number }>('/notifications/mark-all-read');
+    return apiClient.post<{ updated: number }>('/notifications/read-all');
   },
 };

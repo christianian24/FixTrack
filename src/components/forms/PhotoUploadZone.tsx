@@ -4,23 +4,26 @@ import { Upload, X, ImagePlus } from 'lucide-react';
 interface PhotoUploadZoneProps {
   photos: string[];
   onChange: (photos: string[]) => void;
+  onFiles?: (files: File[]) => void;
   maxPhotos?: number;
 }
 
 export const PhotoUploadZone: React.FC<PhotoUploadZoneProps> = ({
   photos,
   onChange,
+  onFiles,
   maxPhotos = 4,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
     const remaining = maxPhotos - photos.length;
-    const toAdd = Math.min(files.length, remaining);
+    const selectedFiles = imageFiles.slice(0, remaining);
+    onFiles?.(selectedFiles);
 
-    Array.from(files).slice(0, toAdd).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
+    selectedFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target?.result) {

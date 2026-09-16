@@ -12,7 +12,6 @@ from ...core.dependencies import get_current_user, require_roles
 from ...db.session import get_db
 from ...models.category import FacilityCategory
 from ...models.concern import Concern, ConcernPhoto, TimelineEvent
-from ...models.notification import Notification
 from ...models.user import User
 from ...schemas.concern import (
     ConcernAssign,
@@ -22,8 +21,22 @@ from ...schemas.concern import (
     ConcernReject,
     ConcernStatusUpdate,
     ConcernSummary,
+    ConcernUpdate,
 )
 from ...services.duplicate_engine import find_duplicates
+from ...services.notification_service import (
+    notify_concern_assigned,
+    notify_concern_closed,
+    notify_concern_rejected,
+    notify_concern_reviewed,
+    notify_concern_submitted,
+    notify_concern_verified,
+    notify_materials_hold,
+    notify_priority_changed,
+    notify_work_completed,
+    notify_work_resumed,
+    notify_work_started,
+)
 from ...services.priority_engine import recommend_priority
 
 router = APIRouter()
@@ -39,6 +52,16 @@ async def _next_tracking_number(db: AsyncSession) -> str:
     )
     count = result.scalar() or 0
     return f"FC-{year}-{count + 1:04d}"
+
+
+async def _responsible_supervisor_id(db: AsyncSession) -> str | None:
+    result = await db.execute(
+        select(User.id)
+        .where(User.role == "MAINTENANCE_SUPERVISOR", User.is_active.is_(True))
+        .order_by(User.id)
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 # ── Helper: add timeline event + optional notification ────────────────────────
@@ -61,24 +84,6 @@ async def _add_event(
         note=note,
     )
     db.add(event)
-
-
-async def _notify_user(
-    db: AsyncSession,
-    user_id: str,
-    concern: Concern,
-    title: str,
-    message: str,
-    notif_type: str = "INFO",
-):
-    notif = Notification(
-        user_id=user_id,
-        concern_id=concern.id,
-        title=title,
-        message=message,
-        type=notif_type,
-    )
-    db.add(notif)
 
 
 # ── List ──────────────────────────────────────────────────────────────────────
@@ -155,6 +160,12 @@ async def create_concern(
     db.add(concern)
     await db.flush()
     await _add_event(db, concern, current_user, "SUBMITTED", f"Concern submitted as {tracking}")
+    if current_user.role == "REPORTER":
+        supervisor_id = await _responsible_supervisor_id(db)
+        if supervisor_id:
+            await notify_concern_submitted(
+                db, supervisor_id=supervisor_id, concern_id=concern.id
+            )
     await db.refresh(concern)
     return ConcernDetail.model_validate(concern)
 
@@ -217,6 +228,44 @@ async def get_concern(
     return ConcernDetail.model_validate(concern)
 
 
+@router.patch("/{concern_id}", response_model=ConcernDetail)
+async def update_concern(
+    concern_id: str,
+    payload: ConcernUpdate,
+    current_user: Annotated[
+        User, Depends(require_roles("MAINTENANCE_SUPERVISOR", "ADMINISTRATOR"))
+    ],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(select(Concern).where(Concern.id == concern_id))
+    concern = result.scalar_one_or_none()
+    if not concern:
+        raise HTTPException(status_code=404, detail="Concern not found")
+
+    updates = payload.model_dump(exclude_none=True)
+    old_priority = concern.priority
+    for field, value in updates.items():
+        setattr(concern, field, value)
+    if "priority" in updates and updates["priority"] != old_priority:
+        await _add_event(
+            db,
+            concern,
+            current_user,
+            "PRIORITY_CHANGED",
+            note=f"Priority changed from {old_priority} to {updates['priority']}",
+        )
+        await notify_priority_changed(
+            db,
+            personnel_id=concern.assigned_to_id,
+            report_number=concern.tracking_number,
+            priority=updates["priority"],
+            concern_id=concern.id,
+        )
+    await db.flush()
+    await db.refresh(concern)
+    return ConcernDetail.model_validate(concern)
+
+
 # ── Workflow transitions ───────────────────────────────────────────────────────
 
 @router.post("/{concern_id}/assign", response_model=ConcernDetail)
@@ -233,7 +282,18 @@ async def assign_concern(
     if not concern:
         raise HTTPException(status_code=404, detail="Concern not found")
 
+    technician_result = await db.execute(
+        select(User).where(
+            User.id == payload.assigned_to_id,
+            User.role == "MAINTENANCE_PERSONNEL",
+            User.is_active.is_(True),
+        )
+    )
+    if technician_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Maintenance personnel not found")
+
     old_status = concern.status
+    previous_assignee_id = concern.assigned_to_id
     concern.assigned_to_id = payload.assigned_to_id
     concern.status = "ASSIGNED"
     concern.assigned_at = datetime.now(timezone.utc)
@@ -242,13 +302,19 @@ async def assign_concern(
         note=payload.note or "Assigned to technician",
         old_status=old_status, new_status="ASSIGNED",
     )
-    # Notify reporter
-    await _notify_user(
-        db, concern.reporter_id, concern,
-        title="Concern Assigned",
-        message=f"Your concern {concern.tracking_number} has been assigned to a technician.",
-        notif_type="INFO",
-    )
+    if old_status == "SUBMITTED" and concern.reporter_id:
+        await notify_concern_reviewed(
+            db, reporter_id=concern.reporter_id, concern_id=concern.id
+        )
+    if previous_assignee_id != payload.assigned_to_id:
+        await notify_concern_assigned(
+            db,
+            personnel_id=payload.assigned_to_id,
+            reporter_id=concern.reporter_id,
+            report_number=concern.tracking_number,
+            concern_id=concern.id,
+            title=concern.title,
+        )
     await db.flush()
     await db.refresh(concern)
     return ConcernDetail.model_validate(concern)
@@ -273,6 +339,22 @@ async def start_concern(
     concern.started_at = datetime.now(timezone.utc)
     await _add_event(db, concern, current_user, "STATUS_CHANGE",
                      note=payload.note or "Work started", old_status=old_status, new_status="IN_PROGRESS")
+    if concern.reporter_id:
+        if old_status == "WAITING_FOR_MATERIALS":
+            await notify_work_resumed(
+                db,
+                reporter_id=concern.reporter_id,
+                report_number=concern.tracking_number,
+                concern_id=concern.id,
+            )
+        elif old_status == "ASSIGNED":
+            await notify_work_started(
+                db,
+                reporter_id=concern.reporter_id,
+                report_number=concern.tracking_number,
+                concern_id=concern.id,
+                title=concern.title,
+            )
     await db.flush()
     await db.refresh(concern)
     return ConcernDetail.model_validate(concern)
@@ -294,6 +376,14 @@ async def hold_concern(
     concern.status = "WAITING_FOR_MATERIALS"
     await _add_event(db, concern, current_user, "STATUS_CHANGE",
                      note=payload.note, old_status=old_status, new_status="WAITING_FOR_MATERIALS")
+    supervisor_id = await _responsible_supervisor_id(db)
+    await notify_materials_hold(
+        db,
+        supervisor_id=supervisor_id,
+        reporter_id=concern.reporter_id,
+        report_number=concern.tracking_number,
+        concern_id=concern.id,
+    )
     await db.flush()
     await db.refresh(concern)
     return ConcernDetail.model_validate(concern)
@@ -319,14 +409,14 @@ async def complete_concern(
     concern.resolution_notes = payload.resolution_notes
     await _add_event(db, concern, current_user, "STATUS_CHANGE",
                      note=payload.resolution_notes, old_status=old_status, new_status="COMPLETED")
-    # Notify supervisor
-    if concern.reporter_id:
-        await _notify_user(
-            db, concern.reporter_id, concern,
-            title="Work Completed — Pending Verification",
-            message=f"Repair on {concern.tracking_number} is complete and awaiting verification.",
-            notif_type="SUCCESS",
-        )
+    await notify_work_completed(
+        db,
+        reporter_id=concern.reporter_id,
+        supervisor_id=await _responsible_supervisor_id(db),
+        report_number=concern.tracking_number,
+        concern_id=concern.id,
+        title=concern.title,
+    )
     await db.flush()
     await db.refresh(concern)
     return ConcernDetail.model_validate(concern)
@@ -352,12 +442,13 @@ async def verify_concern(
     await _add_event(db, concern, current_user, "VERIFIED",
                      note=payload.note or "Repair verified and accepted",
                      old_status=old_status, new_status="VERIFIED")
-    if concern.reporter_id:
-        await _notify_user(
-            db, concern.reporter_id, concern,
-            title="Concern Resolved ✓",
-            message=f"Your concern {concern.tracking_number} has been verified and resolved.",
-            notif_type="SUCCESS",
+    if concern.reporter_id and old_status == "COMPLETED":
+        await notify_concern_verified(
+            db,
+            reporter_id=concern.reporter_id,
+            report_number=concern.tracking_number,
+            concern_id=concern.id,
+            title=concern.title,
         )
     await db.flush()
     await db.refresh(concern)
@@ -383,6 +474,13 @@ async def close_concern(
     concern.closed_at = datetime.now(timezone.utc)
     await _add_event(db, concern, current_user, "CLOSED",
                      note=payload.note, old_status=old_status, new_status="CLOSED")
+    if concern.reporter_id and old_status != "VERIFIED":
+        await notify_concern_closed(
+            db,
+            reporter_id=concern.reporter_id,
+            report_number=concern.tracking_number,
+            concern_id=concern.id,
+        )
     await db.flush()
     await db.refresh(concern)
     return ConcernDetail.model_validate(concern)
@@ -407,12 +505,12 @@ async def reject_concern(
     concern.rejection_reason = payload.rejection_reason
     await _add_event(db, concern, current_user, "REJECTED",
                      note=payload.rejection_reason, old_status=old_status, new_status="REJECTED")
-    if concern.reporter_id:
-        await _notify_user(
-            db, concern.reporter_id, concern,
-            title="Concern Not Approved",
-            message=f"Your concern {concern.tracking_number} was not approved: {payload.rejection_reason}",
-            notif_type="WARNING",
+    if concern.assigned_to_id:
+        await notify_concern_rejected(
+            db,
+            personnel_id=concern.assigned_to_id,
+            report_number=concern.tracking_number,
+            concern_id=concern.id,
         )
     await db.flush()
     await db.refresh(concern)

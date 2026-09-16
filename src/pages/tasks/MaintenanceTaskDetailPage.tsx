@@ -4,6 +4,7 @@ import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { PhotoGallery } from '../../components/common/PhotoGallery';
+import { PhotoUploadZone } from '../../components/forms/PhotoUploadZone';
 import { TimelineView } from '../../components/concerns/TimelineView';
 import { Modal } from '../../components/common/Modal';
 import { ArrowLeft, Wrench, CheckCircle, Package, PlusCircle } from 'lucide-react';
@@ -15,30 +16,31 @@ const MetaChip: React.FC<{ label: string; value: string }> = ({ label, value }) 
   </div>
 );
 
-const ModalBtn: React.FC<{ type?: 'button' | 'submit'; color?: string; onClick?: () => void; children: React.ReactNode }> =
-  ({ type = 'button', color = 'bg-slate-100 hover:bg-slate-200 text-slate-700', onClick, children }) => (
-    <button type={type} onClick={onClick} className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${color}`}>
+const ModalBtn: React.FC<{ type?: 'button' | 'submit'; color?: string; onClick?: () => void; disabled?: boolean; children: React.ReactNode }> =
+  ({ type = 'button', color = 'bg-slate-100 hover:bg-slate-200 text-slate-700', onClick, disabled = false, children }) => (
+    <button type={type} onClick={onClick} disabled={disabled} className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${color}`}>
       {children}
     </button>
   );
 
 export const MaintenanceTaskDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { currentUser } = useAuth();
-  const { concerns, updateConcernStatus } = useFacilityCare();
+  const { currentUser, currentRole } = useAuth();
+  const { concerns, updateConcernStatus, uploadConcernPhoto, deleteConcernPhoto } = useFacilityCare();
 
   const task = concerns.find(c => c.id === id);
 
   const [completeModalOpen, setCompleteModalOpen]   = useState(false);
   const [materialsModalOpen, setMaterialsModalOpen] = useState(false);
   const [progressModalOpen, setProgressModalOpen]   = useState(false);
+  const [completionSubmitting, setCompletionSubmitting] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
 
   const [progressNote, setProgressNote] = useState('');
   const [materialsNote, setMaterialsNote] = useState('Awaiting replacement hardware delivery from supplier.');
   const [completionNotes, setCompletionNotes] = useState('Replaced damaged components, tested operation, and verified area is clean and safe.');
-  const [completionPhotoUrl, setCompletionPhotoUrl] = useState(
-    'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80',
-  );
+  const [completionPhotoFile, setCompletionPhotoFile] = useState<File | null>(null);
+  const [completionPhotoPreviews, setCompletionPhotoPreviews] = useState<string[]>([]);
 
   if (!task) {
     return (
@@ -68,11 +70,38 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
     setMaterialsModalOpen(false);
   };
 
-  const handleCompletionSubmit = (e: React.FormEvent) => {
+  const handleCompletionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!completionNotes) return;
-    updateConcernStatus(task.id, 'COMPLETED', completionNotes, completionPhotoUrl, currentUser);
-    setCompleteModalOpen(false);
+    if (completionNotes.trim().length < 10) {
+      setCompletionError('Resolution notes must be at least 10 characters.');
+      return;
+    }
+    if (!completionPhotoFile) {
+      setCompletionError('Select a completion evidence file before submitting.');
+      return;
+    }
+    setCompletionError(null);
+    setCompletionSubmitting(true);
+    let uploadedPhotoId: string | null = null;
+    try {
+      const uploadedPhoto = await uploadConcernPhoto(task.id, completionPhotoFile, true);
+      uploadedPhotoId = uploadedPhoto.id;
+      await updateConcernStatus(task.id, 'COMPLETED', completionNotes, undefined, currentUser);
+      setCompleteModalOpen(false);
+      setCompletionPhotoFile(null);
+      setCompletionPhotoPreviews([]);
+    } catch (error) {
+      if (uploadedPhotoId) {
+        try {
+          await deleteConcernPhoto(task.id, uploadedPhotoId);
+        } catch {
+          // Keep the original completion error visible if compensation fails.
+        }
+      }
+      setCompletionError(error instanceof Error ? error.message : 'Completion failed. Please try again.');
+    } finally {
+      setCompletionSubmitting(false);
+    }
   };
 
   return (
@@ -157,6 +186,9 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
             <PhotoGallery
               beforePhotos={task.beforePhotos}
               afterPhotos={task.afterPhotos}
+              photoRecords={task.photoRecords}
+              canDelete={task.status !== 'CLOSED' && currentRole === 'MAINTENANCE_PERSONNEL' && task.assignedPersonnelId === currentUser.id}
+              onDelete={(photoId) => deleteConcernPhoto(task.id, photoId)}
               title="Inspection & Completion Photos"
             />
           </div>
@@ -204,15 +236,25 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
             <textarea rows={3} required value={completionNotes} onChange={(e) => setCompletionNotes(e.target.value)} className="input-base" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Completion Photo URL</label>
-            <input type="url" value={completionPhotoUrl} onChange={(e) => setCompletionPhotoUrl(e.target.value)} className="input-base" />
-            <div className="mt-2 aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-              <img src={completionPhotoUrl} alt="Completion preview" className="w-full h-full object-cover" />
-            </div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Completion Evidence *</label>
+            <p className="text-xs text-slate-500 mb-2">Upload a photo of the completed repair.</p>
+            <PhotoUploadZone
+              photos={completionPhotoPreviews}
+              maxPhotos={1}
+              onChange={(photos) => {
+                setCompletionPhotoPreviews(photos);
+                if (photos.length === 0) setCompletionPhotoFile(null);
+              }}
+              onFiles={(files) => {
+                setCompletionPhotoFile(files[0] ?? null);
+                setCompletionError(null);
+              }}
+            />
           </div>
+          {completionError && <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">{completionError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <ModalBtn onClick={() => setCompleteModalOpen(false)}>Cancel</ModalBtn>
-            <ModalBtn type="submit" color="bg-emerald-500 hover:bg-emerald-600 text-white">Submit for Verification</ModalBtn>
+            <ModalBtn type="submit" disabled={completionSubmitting} color="bg-emerald-500 hover:bg-emerald-600 text-white">{completionSubmitting ? 'Submitting...' : 'Submit for Verification'}</ModalBtn>
           </div>
         </form>
       </Modal>

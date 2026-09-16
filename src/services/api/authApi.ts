@@ -5,6 +5,17 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface RegisterRequest {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  role?: 'REPORTER';
+  user_type: 'STUDENT' | 'FACULTY';
+  department?: string;
+  phone?: string;
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -20,7 +31,7 @@ export interface MeResponse {
   department: string | null;
   phone: string | null;
   avatar_url: string | null;
-  status: string;
+  is_active: boolean;
 }
 
 export const authApi = {
@@ -43,6 +54,12 @@ export const authApi = {
       throw new Error(err.detail ?? 'Login failed');
     }
     const token: TokenResponse = await res.json();
+    setToken(token.access_token);
+    return token;
+  },
+
+  async register(data: RegisterRequest): Promise<TokenResponse> {
+    const token = await apiClient.post<TokenResponse>('/auth/register', data);
     setToken(token.access_token);
     return token;
   },

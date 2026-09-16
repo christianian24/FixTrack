@@ -41,8 +41,19 @@ export interface UserRead {
   department: string | null;
   phone: string | null;
   avatar_url: string | null;
+  is_active: boolean;
   status: string;
   created_at: string;
+}
+
+export interface AdminUserUpdateRequest {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  role?: string;
+  user_type?: string;
+  department?: string;
+  is_active?: boolean;
 }
 
 // ─── Buildings ────────────────────────────────────────────────────────────────
@@ -112,6 +123,19 @@ export const usersApi = {
   },
   updateMe(data: Partial<Pick<UserRead, 'first_name' | 'last_name' | 'phone' | 'department'>>): Promise<UserRead> {
     return apiClient.patch<UserRead>('/users/me', data);
+  },
+  updateManaged(id: string, data: AdminUserUpdateRequest): Promise<UserRead> {
+    return apiClient.patch<UserRead>(`/users/${id}`, data);
+  },
+  uploadManagedAvatar(id: string, file: File): Promise<UserRead> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.upload<UserRead>(`/users/${id}/avatar`, formData);
+  },
+  uploadMyAvatar(file: File): Promise<UserRead> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.upload<UserRead>('/users/me/avatar', formData);
   },
   update(id: string, data: Partial<UserRead>): Promise<UserRead> {
     return apiClient.patch<UserRead>(`/users/${id}`, data);

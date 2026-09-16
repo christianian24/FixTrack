@@ -10,8 +10,12 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
-  const { isAuthenticated, currentRole } = useAuth();
+  const { isAuthenticated, isLoading, currentRole } = useAuth();
   const location = useLocation();
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-sm text-slate-500">Loading your FixTrack session…</div>;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;

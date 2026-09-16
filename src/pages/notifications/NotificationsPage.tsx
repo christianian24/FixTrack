@@ -15,13 +15,11 @@ import {
 
 export const NotificationsPage: React.FC = () => {
   const { currentUser } = useAuth();
-  const { notifications, markNotificationAsRead, markAllNotificationsAsRead } = useFacilityCare();
+  const { notifications, notificationError, markNotificationAsRead, markAllNotificationsAsRead } = useFacilityCare();
 
   const [filter, setFilter] = useState<'ALL' | 'UNREAD'>('ALL');
 
-  const myNotifications = notifications.filter(
-    n => n.userId === currentUser.id || currentUser.role === 'ADMINISTRATOR' || currentUser.role === 'MAINTENANCE_SUPERVISOR'
-  );
+  const myNotifications = notifications.filter(n => n.userId === currentUser.id);
 
   const filteredNotifs = myNotifications.filter(n => {
     if (filter === 'UNREAD') return !n.read;
@@ -78,6 +76,10 @@ export const NotificationsPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {notificationError && (
+        <p className="text-sm text-rose-600" role="alert">{notificationError}</p>
+      )}
 
       {/* Segmented Control */}
       <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200 w-fit">

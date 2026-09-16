@@ -27,6 +27,13 @@ export interface TimelineEvent {
   statusAfter?: ConcernStatus;
 }
 
+export interface ConcernPhotoEvidence {
+  id: string;
+  url: string;
+  isCompletionPhoto: boolean;
+  filename?: string | null;
+}
+
 export interface Concern {
   id: string;
   reportNumber: string; // e.g. FC-2026-0001
@@ -60,6 +67,7 @@ export interface Concern {
   repairNotes?: string;
   beforePhotos: string[];
   afterPhotos: string[];
+  photoRecords?: ConcernPhotoEvidence[];
 
   timeline: TimelineEvent[];
 

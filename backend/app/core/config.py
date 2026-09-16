@@ -1,6 +1,11 @@
 from __future__ import annotations
+from pathlib import Path
 from pydantic_settings import BaseSettings
-from pydantic import AnyUrl
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+LOCAL_DATABASE_PATH = BACKEND_DIR / "fixtrack_dev.db"
+LOCAL_UPLOAD_DIR = BACKEND_DIR / "uploads"
 
 
 class Settings(BaseSettings):
@@ -16,16 +21,18 @@ class Settings(BaseSettings):
 
     # ── Database ─────────────────────────────────────────────────────────────
     # PostgreSQL in production, SQLite for local zero-config dev
-    DATABASE_URL: str = "sqlite+aiosqlite:///./fixtrack_dev.db"
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{LOCAL_DATABASE_PATH.as_posix()}"
 
     # ── Storage ──────────────────────────────────────────────────────────────
-    UPLOAD_DIR: str = "uploads"
+    UPLOAD_DIR: str = str(LOCAL_UPLOAD_DIR)
     MAX_UPLOAD_SIZE_MB: int = 10
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
         "http://localhost:4173",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:4173",
     ]
 
     class Config:

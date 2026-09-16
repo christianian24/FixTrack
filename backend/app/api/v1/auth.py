@@ -59,7 +59,7 @@ async def register(
         last_name=payload.last_name,
         email=payload.email.lower(),
         hashed_password=hash_password(payload.password),
-        role=payload.role,
+        role="REPORTER",
         user_type=payload.user_type,
         department=payload.department,
         phone=payload.phone,

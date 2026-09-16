@@ -8,6 +8,15 @@
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
 
+export function getApiBaseUrl(): string {
+  return BASE_URL;
+}
+
+export function resolveApiUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) return path;
+  return `${BASE_URL.replace(/\/api\/v1\/?$/, '')}${path}`;
+}
+
 // ─── Token helpers ────────────────────────────────────────────────────────────
 
 const TOKEN_KEY = 'fixtrack_access_token';
