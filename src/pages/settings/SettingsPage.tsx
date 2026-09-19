@@ -21,6 +21,17 @@ export const SettingsPage: React.FC = () => {
   const { currentUser, currentRole, logout, isDemoMode, setDemoMode } = useAuth();
   const { resetDemoData } = useFacilityCare();
   const navigate = useNavigate();
+  const isCompactRole = currentRole === 'REPORTER' || currentRole === 'MAINTENANCE_PERSONNEL' || currentRole === 'MAINTENANCE_SUPERVISOR' || currentRole === 'ADMINISTRATOR';
+  const isAdminRole = currentRole === 'ADMINISTRATOR';
+  const isSupervisorRole = currentRole === 'MAINTENANCE_SUPERVISOR';
+  const isTechnicianRole = currentRole === 'MAINTENANCE_PERSONNEL';
+  const primaryButtonClasses = isAdminRole
+    ? 'w-full py-2.5 text-sm cursor-pointer mt-2 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors shadow-sm'
+    : isSupervisorRole
+    ? 'w-full py-2.5 text-sm cursor-pointer mt-2 rounded-xl bg-indigo-500 text-white font-semibold hover:bg-indigo-600 transition-colors shadow-sm'
+    : isTechnicianRole
+    ? 'w-full py-2.5 text-sm cursor-pointer mt-2 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 transition-colors shadow-sm'
+    : 'btn-primary w-full py-2.5 text-sm cursor-pointer mt-2';
   const initials = `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`.toUpperCase();
 
   // Password state
@@ -75,7 +86,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className={isCompactRole ? 'max-w-4xl mx-auto space-y-3' : 'max-w-4xl mx-auto space-y-4'}>
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
@@ -87,9 +98,9 @@ export const SettingsPage: React.FC = () => {
       </div>
 
       {/* Grid: Password Security & Notifications */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className={isCompactRole ? 'grid grid-cols-1 md:grid-cols-2 gap-3' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
         {/* ── Section 1: Account Security & Password ────────────────────── */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isCompactRole ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
             <Key className="w-4 h-4 text-sky-600" />
             <h2 className="text-sm font-bold text-slate-800">Account Security & Password</h2>
@@ -154,7 +165,7 @@ export const SettingsPage: React.FC = () => {
 
             <button
               type="submit"
-              className="btn-primary w-full py-2.5 text-sm cursor-pointer mt-2"
+              className={primaryButtonClasses}
             >
               Update Password
             </button>
@@ -162,8 +173,8 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* ── Section 2: Notification & Alert Preferences ──────────────── */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4 flex flex-col justify-between">
-          <div className="space-y-4">
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isCompactRole ? 'p-4 space-y-3' : 'p-5 space-y-4'} flex flex-col justify-between`}>
+          <div className={isCompactRole ? 'space-y-3' : 'space-y-4'}>
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
               <Bell className="w-4 h-4 text-sky-600" />
               <h2 className="text-sm font-bold text-slate-800">Notification Preferences</h2>
@@ -176,7 +187,7 @@ export const SettingsPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSavePreferences} className="space-y-4">
+            <form onSubmit={handleSavePreferences} className={isCompactRole ? 'space-y-3' : 'space-y-4'}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold text-slate-700">Email Status Updates</p>
@@ -234,7 +245,7 @@ export const SettingsPage: React.FC = () => {
       </div>
 
       {/* ── Section 3: Demonstration & Environment Controls ────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isCompactRole ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Sparkles className="w-4 h-4 text-sky-600" />
           <h2 className="text-sm font-bold text-slate-800">Environment & Demonstration Mode</h2>
@@ -289,7 +300,7 @@ export const SettingsPage: React.FC = () => {
       </div>
 
       {/* ── Section 4: Sign Out & Active Session Management ─────────────── */}
-      <div className="bg-white rounded-2xl border border-rose-100 shadow-sm p-6 space-y-4">
+      <div className={`bg-white rounded-2xl border border-rose-100 shadow-sm ${isCompactRole ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Lock className="w-4 h-4 text-rose-600" />
           <h2 className="text-sm font-bold text-slate-800">Sign Out & Session Management</h2>

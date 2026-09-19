@@ -1,157 +1,169 @@
-# FixTrack — School Facility Concern Reporting & Maintenance Monitoring System
+# FixTrack
 
-FixTrack is an enterprise-grade, centralized web-based maintenance operations platform engineered specifically for educational institutions. It empowers students and faculty to rapidly report facility hazards, upload photographic documentation, and pinpoint exact room locations, while providing maintenance supervisors and technicians with end-to-end dispatching, repair milestone tracking, transparent duplicate detection, smart priority recommendations, before/after photographic verification, and campus infrastructure analytics.
+FixTrack is a facility concern reporting and maintenance monitoring system for educational institutions. Reporters can submit concerns with room-level locations and photos, while maintenance personnel, supervisors, and administrators can manage work orders, repairs, notifications, and operational reporting.
 
----
+The repository contains a React frontend and a FastAPI backend. The frontend can run against the backend or in an offline demo mode backed by local mock data.
 
-## 🚀 Key System Capabilities
+## Features
 
-### 1. Reporter Experience (Students & Faculty)
-- **Interactive Reporting Form** (`/concerns/new`): Cascading building & room selectors, detailed description, safety severity rating, and photo upload zone with drag-and-drop & preset samples.
-- **Explainable Duplicate Report Detection**: Live rule-based scanning that compares building, room, category, and title keywords against open work orders, warning reporters before redundant submissions.
-- **Smart Priority Advisor**: Multi-factor algorithm weighing life-safety hazards, affected population, facility category, and recurring frequency with transparent reasoning bullets.
-- **Concern Progress Tracking** (`/concerns/:id`): Visual progress pipeline, chronological audit timeline, and location repair history for past incidents in the same room.
+- Concern submission with building and room selection, descriptions, safety flags, and photo uploads
+- Duplicate concern detection and explainable priority recommendations
+- Concern timelines, repair history, notifications, and status tracking
+- Technician task workflow for accepting work, recording progress, material holds, and completion evidence
+- Supervisor triage, assignment, scheduling, priority overrides, and repair verification
+- Administrator management for users, buildings, rooms, and facility categories
+- Analytics dashboards and filterable CSV/print reports
+- JWT authentication with role-based access control
+- Local file uploads and SQLite development storage, with Alembic migrations for deployed databases
 
-### 2. Maintenance Personnel Experience
-- **Dedicated Task Board** (`/tasks`): Filter by assigned, pending acceptance, in progress, waiting for materials, and completed.
-- **Work Order Console** (`/tasks/:id`): One-click task acceptance, progress logging, material hold toggle, and completion submission requiring resolution notes and photo proof.
-
-### 3. Maintenance Supervisor Experience
-- **Supervisory Dispatch Hub** (`/manage`): Triage unassigned reports, dispatch technicians, schedule target dates, and override priorities.
-- **Inspection & Verification Console** (`/verify/:id`): Side-by-side Before vs. After completion photo comparison viewer, technician turnaround metrics, and actions to "Verify & Close" or "Reject & Request Re-work" with required rationale.
-
-### 4. Campus Administrator Experience
-- **Master Data Management**: Full CRUD suites for Campus Users (`/admin/users`), Buildings (`/admin/buildings`), Rooms (`/admin/rooms`), and Facility Categories (`/admin/categories`).
-- **Interactive Analytics Dashboard** (`/analytics`): Recharts visualizations for monthly incident velocity trends, building incident distribution, top hazard categories, completion rate donuts, and technician throughput benchmarks.
-- **Exportable Compliance Reports** (`/reports`): Filterable reports with client-side CSV downloads and print/PDF formatting.
-
----
-
-## 🛠️ Technology Stack
+## Technology
 
 ### Frontend
-- **Framework**: React 19 + TypeScript + Vite 8
-- **Styling**: Tailwind CSS with clean, modern school portal UI (white/light-slate backgrounds, sky blue `#0284c7` accents, subtle borders, Inter typography)
-- **Icons**: Lucide React
-- **Data Visualization**: Recharts
-- **Routing**: React Router v7 with RBAC route protection (`ProtectedRoute`)
-- **API Services**: Unified typed API client with JWT interceptor (`src/services/api/`)
-- **State & Persistence**: Dual-mode `AuthContext` and `FacilityCareContext` supporting live backend and offline fallback.
 
-### Backend (FastAPI + SQLAlchemy 2.0)
-- **API Framework**: Python 3.12 + FastAPI (REST API, OpenAPI/Swagger at `/api/docs`)
-- **Database & ORM**: SQLAlchemy 2.0 (asyncio) + Alembic migrations
-- **Databases**: SQLite (zero-config local dev) / PostgreSQL (production)
-- **Security**: JWT Bearer Tokens + bcrypt password hashing + 5-role RBAC server dependencies
-- **Engines**: Server-side duplicate detection (token Jaccard) and multi-factor priority advisor
-- **File Storage**: Local uploads with static serving + S3-ready cloud abstraction
-- **Testing**: 30 comprehensive automated tests with pytest and pytest-asyncio
+- React 19, TypeScript, and Vite 8
+- Tailwind CSS
+- React Router 7
+- Recharts
+- Lucide React
+- Typed fetch API client with JWT bearer-token support
+- React contexts for authentication and facility data
 
----
+### Backend
 
-## 👥 Demo Accounts (1-Click Switcher Available in Header)
+- Python 3.12, FastAPI, and Uvicorn
+- SQLAlchemy 2.0 with async sessions
+- Pydantic Settings and Alembic
+- SQLite with `aiosqlite` for zero-configuration local development
+- JWT authentication, bcrypt password hashing, and server-side RBAC
+- Duplicate detection, priority scoring, notifications, analytics, reports, and upload endpoints
+- Pytest and pytest-asyncio test suite
 
-FixTrack includes 5 pre-configured demo personas:
+## Project Layout
 
-| Role | Demo User | Email | Password | Key Capabilities |
-| :--- | :--- | :--- | :--- | :--- |
-| **Reporter (Student)** | Alex Rivera | `alex.student@school.edu` | `demo1234` | Report concerns, track submissions, receive updates |
-| **Reporter (Faculty)** | Dr. Maria Santos | `maria.santos@school.edu` | `demo1234` | Report hazards, verify repairs for classroom/lab |
-| **Maintenance Personnel** | Juan Dela Cruz | `juan.tech@school.edu` | `demo1234` | Accept tasks, update progress notes, upload after photos |
-| **Maintenance Supervisor** | Engr. Carlos Mendoza | `carlos.supervisor@school.edu` | `demo1234` | Triage, assign technicians, inspect before/after photos, close requests |
-| **Administrator** | Elena Vance | `elena.admin@school.edu` | `demo1234` | Manage campus master data, users, rooms, analytics |
-
-*Use the **Role Dropdown** in the top header bar to instantly switch between demo roles without logging out.*
-
----
-
-## 📦 Project Structure
-
-```
-c:\code_vs\Faculty\
-├── vercel.json                      # Vercel SPA routing & security headers
-├── .env.example                     # Frontend environment variables template
-├── backend/                         # FastAPI Full-Stack Backend
-│   ├── requirements.txt             # Python dependencies
-│   ├── alembic.ini                  # Alembic migration configuration
-│   ├── .env.example                 # Backend environment variables template
-│   ├── alembic/                     # Database migrations
-│   │   ├── env.py                   # Async Alembic runner
-│   │   └── versions/                # Versioned migration scripts
+```text
+.
+├── backend/
 │   ├── app/
-│   │   ├── main.py                  # FastAPI entry point & CORS
-│   │   ├── core/                    # Settings, security, JWT, RBAC dependencies
-│   │   ├── db/                      # Session, Base, seed scripts
-│   │   ├── models/                  # SQLAlchemy 2.0 async models
-│   │   ├── schemas/                 # Pydantic v2 schemas
-│   │   ├── services/                # Duplicate engine, priority engine, storage
-│   │   └── api/v1/                  # REST routers for auth, concerns, buildings, etc.
-│   └── tests/                       # Pytest automated test suite (30 tests)
+│   │   ├── api/v1/       # Auth, users, buildings, rooms, categories, concerns, etc.
+│   │   ├── core/         # Settings, security, and dependencies
+│   │   ├── db/            # Async database session and seed data
+│   │   ├── models/        # SQLAlchemy models
+│   │   ├── schemas/       # Pydantic schemas
+│   │   └── services/      # Duplicate, priority, notification, and storage services
+│   ├── alembic/           # Database migrations
+│   ├── tests/             # Backend automated tests
+│   └── requirements.txt
 ├── src/
-│   ├── main.tsx                     # React entry point
-│   ├── App.tsx                      # Route declarations & role guards
-│   ├── services/api/                # Axios/Fetch backend API client & endpoints
-│   ├── store/                       # AuthContext & FacilityCareContext
-│   ├── components/                  # Badges, Layout, ProtectedRoute, Forms
-│   └── pages/                       # Screens for all 5 roles
+│   ├── components/        # Shared UI, forms, layouts, and concern components
+│   ├── data/              # Offline demo data
+│   ├── pages/             # Application screens
+│   ├── services/api/      # Backend API clients
+│   ├── store/             # AuthContext and FacilityCareContext
+│   └── types/             # Frontend domain types
+├── .env.example           # Frontend environment variables
+├── vercel.json            # SPA rewrites and security headers
+└── package.json
 ```
 
----
+## Prerequisites
 
-## ⚡ Development & Running Instructions
+- Node.js 20 or newer and npm
+- Python 3.12 or newer
 
-### 1. Backend Setup & Startup
+## Local Development
+
+### 1. Configure the frontend
+
+From the repository root:
 
 ```bash
+copy .env.example .env.local
+npm install
+```
+
+The default frontend API URL is `http://localhost:8000/api/v1`. Set `VITE_OFFLINE_DEMO=true` in `.env.local` when the backend is not needed.
+
+### 2. Set up and run the backend
+
+From the repository root, create a virtual environment and install the backend dependencies:
+
+```powershell
 cd backend
-
-# Create virtual environment (Python 3.12)
 python -m venv .venv
-source .venv/bin/activate  # Or on Windows: .venv\Scripts\activate
-
-# Install dependencies
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+copy .env.example .env
+```
 
-# Run migrations & seed data
-alembic upgrade head
+For macOS/Linux, activate the environment with `source .venv/bin/activate` instead.
+
+SQLite tables are created automatically when the application starts. Seed the local database with demo data, then start the API:
+
+```bash
 python -m app.db.seed
-
-# Start FastAPI server
 uvicorn app.main:app --reload --port 8000
 ```
-API Documentation will be live at `http://localhost:8000/api/docs`.
 
-### 2. Frontend Setup & Startup
+The backend provides:
+
+- Health check: `http://localhost:8000/health`
+- Swagger UI: `http://localhost:8000/api/docs`
+- ReDoc: `http://localhost:8000/api/redoc`
+- API base URL: `http://localhost:8000/api/v1`
+- Uploaded files: `http://localhost:8000/uploads/`
+
+For production databases, configure `DATABASE_URL` and run `alembic upgrade head` instead of relying on SQLite's automatic table creation. PostgreSQL deployments also need an appropriate async PostgreSQL driver installed.
+
+### 3. Start the frontend
+
+In a second terminal from the repository root:
 
 ```bash
-# In the repository root
-npm install
-
-# Start development server
 npm run dev
 ```
-Frontend will be live at `http://localhost:5173`.
 
----
+The frontend runs at `http://localhost:5173`.
 
-## 🧪 Verification & Automated Testing
+## Demo Accounts
+
+The seed script creates six backend demo users. They all use the password `demo1234`.
+
+| Role | Name | Email |
+| --- | --- | --- |
+| Reporter / Student | Alex Rivera | `alex.student@school.edu` |
+| Reporter / Faculty | Maria Santos | `maria.faculty@school.edu` |
+| Maintenance Personnel | Juan Dela Cruz | `juan.tech@school.edu` |
+| Maintenance Personnel | Robert Taylor | `robert.taylor@school.edu` |
+| Maintenance Supervisor | Carlos Mendoza | `carlos.supervisor@school.edu` |
+| Administrator | Elena Vance | `elena.admin@school.edu` |
+
+The application also supports demo-persona login and role switching through the UI. In offline demo mode, the frontend uses the mock data under `src/data/` and does not require the API.
+
+## Verification
+
+Run these commands from the repository root:
 
 ```bash
-# 1. Run backend pytest suite (30 tests across Auth, RBAC, Concerns, Engines)
-backend\.venv\Scripts\pytest backend/tests -v
-
-# 2. Run frontend typecheck & production build
+# Frontend typecheck and production build
 npm run build
 
-# 3. Run frontend linter
+# Frontend linting
 npm run lint
 ```
 
----
+Run backend tests with the virtual environment activated:
 
-## 🚀 Deployment (Vercel)
+```bash
+cd backend
+pytest tests -v
+```
 
-The frontend is fully configured for deployment on **Vercel**:
-- Configuration file: [`vercel.json`](file:///c:/code_vs/Faculty/vercel.json) handles SPA routing rewrites to `/index.html` and sets HTTP security headers.
-- Set environment variable on Vercel:
-  `VITE_API_BASE_URL=https://your-backend-api.domain.com/api/v1`
+## Deployment
+
+The frontend is configured for Vercel through `vercel.json`. Set `VITE_API_BASE_URL` to the deployed backend URL including the `/api/v1` path, for example:
+
+```text
+VITE_API_BASE_URL=https://api.example.com/api/v1
+```
+
+Configure the backend `CORS_ORIGINS`, `SECRET_KEY`, `DATABASE_URL`, and upload storage settings for the deployed environment. Do not use the development secret key in production.

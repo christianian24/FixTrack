@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -16,7 +17,9 @@ import {
 } from 'lucide-react';
 
 export const ConcernListPage: React.FC = () => {
+  const { currentRole } = useAuth();
   const { concerns, buildings, categories } = useFacilityCare();
+  const isCompactRole = currentRole === 'REPORTER' || currentRole === 'MAINTENANCE_SUPERVISOR' || currentRole === 'ADMINISTRATOR';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -58,6 +61,13 @@ export const ConcernListPage: React.FC = () => {
   }, [concerns, searchQuery, selectedStatus, selectedPriority, selectedCategory, selectedBuilding, sortBy]);
 
   const hasActiveFilter = searchQuery || selectedStatus !== 'ALL' || selectedPriority !== 'ALL' || selectedCategory !== 'ALL' || selectedBuilding !== 'ALL';
+  const reportConcernButtonClass = currentRole === 'ADMINISTRATOR'
+    ? 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 shadow-sm transition-colors flex-shrink-0'
+    : currentRole === 'MAINTENANCE_SUPERVISOR'
+    ? 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-500 text-white text-sm font-semibold hover:bg-indigo-600 shadow-sm transition-colors flex-shrink-0'
+    : currentRole === 'MAINTENANCE_PERSONNEL'
+    ? 'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 shadow-sm transition-colors flex-shrink-0'
+    : 'btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm flex-shrink-0';
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -68,9 +78,9 @@ export const ConcernListPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={isCompactRole ? 'space-y-3' : 'space-y-4'}>
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className={`flex flex-col sm:flex-row sm:items-center justify-between ${isCompactRole ? 'gap-3' : 'gap-4'}`}>
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Facility Concerns</h1>
           <p className="text-sm text-slate-500 mt-0.5">
@@ -81,16 +91,16 @@ export const ConcernListPage: React.FC = () => {
         <Link
           to="/concerns/new"
           id="new-concern-btn"
-          className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm flex-shrink-0"
+          className={reportConcernButtonClass}
         >
           <PlusCircle className="w-4 h-4" /> Report a Concern
         </Link>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isCompactRole ? 'p-3' : 'p-4'} space-y-3`}>
         {/* Search + view toggle + sort */}
-        <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className={`flex flex-col sm:flex-row items-center ${isCompactRole ? 'gap-2' : 'gap-3'}`}>
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -210,15 +220,15 @@ export const ConcernListPage: React.FC = () => {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-                  <th className="py-3 px-4">Report #</th>
-                  <th className="py-3 px-4">Issue</th>
-                  <th className="py-3 px-4">Location</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Priority</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Assigned To</th>
-                  <th className="py-3 px-4">Reported</th>
-                  <th className="py-3 px-4 text-right">Action</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3' : 'py-3 px-4'}>Report #</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3' : 'py-3 px-4'}>Issue</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3' : 'py-3 px-4'}>Location</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3' : 'py-3 px-4'}>Category</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3' : 'py-3 px-4'}>Priority</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3' : 'py-3 px-4'}>Status</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3' : 'py-3 px-4'}>Assigned To</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3' : 'py-3 px-4'}>Reported</th>
+                  <th className={isCompactRole ? 'py-2.5 px-3 text-right' : 'py-3 px-4 text-right'}>Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -227,12 +237,12 @@ export const ConcernListPage: React.FC = () => {
                     key={concern.id}
                     className="hover:bg-slate-50 transition-colors group"
                   >
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap' : 'py-3 px-4 whitespace-nowrap'}>
                       <span className="text-xs font-semibold text-slate-600">
                         #{concern.reportNumber}
                       </span>
                     </td>
-                    <td className="py-3 px-4 max-w-xs">
+                    <td className={isCompactRole ? 'py-2.5 px-3 max-w-xs' : 'py-3 px-4 max-w-xs'}>
                       <Link
                         to={`/concerns/${concern.id}`}
                         className="font-medium text-slate-800 hover:text-sky-600 transition-colors line-clamp-1"
@@ -243,24 +253,24 @@ export const ConcernListPage: React.FC = () => {
                         By {concern.reporterName} ({concern.reporterType})
                       </span>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap' : 'py-3 px-4 whitespace-nowrap'}>
                       <div className="font-medium text-slate-700">{concern.roomName}</div>
                       <div className="text-[11px] text-slate-400">{concern.buildingName}</div>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-600">{concern.categoryName}</td>
-                    <td className="py-3 px-4 whitespace-nowrap"><PriorityBadge priority={concern.priority} size="sm" /></td>
-                    <td className="py-3 px-4 whitespace-nowrap"><StatusBadge status={concern.status} size="sm" /></td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap text-slate-600' : 'py-3 px-4 whitespace-nowrap text-slate-600'}>{concern.categoryName}</td>
+                    <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap' : 'py-3 px-4 whitespace-nowrap'}><PriorityBadge priority={concern.priority} size="sm" /></td>
+                    <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap' : 'py-3 px-4 whitespace-nowrap'}><StatusBadge status={concern.status} size="sm" /></td>
+                    <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap' : 'py-3 px-4 whitespace-nowrap'}>
                       {concern.assignedPersonnelName ? (
                         <span className="text-slate-700 font-medium">{concern.assignedPersonnelName}</span>
                       ) : (
                         <span className="text-slate-400 text-xs italic">Unassigned</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-400 text-xs" title={concern.createdAt}>
+                    <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap text-slate-400 text-xs' : 'py-3 px-4 whitespace-nowrap text-slate-400 text-xs'} title={concern.createdAt}>
                       {formatRelativeTime(concern.createdAt)}
                     </td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                    <td className={isCompactRole ? 'py-2.5 px-3 text-right whitespace-nowrap' : 'py-3 px-4 text-right whitespace-nowrap'}>
                       <Link
                         to={`/concerns/${concern.id}`}
                         className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700"
@@ -276,12 +286,12 @@ export const ConcernListPage: React.FC = () => {
         </div>
       ) : (
         // ── Grid View ─────────────────────────────────────────────
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${isCompactRole ? 'gap-3' : 'gap-4'}`}>
           {filteredConcerns.map((concern) => (
             <Link
               key={concern.id}
               to={`/concerns/${concern.id}`}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:shadow-md hover:border-sky-200 flex flex-col justify-between space-y-4 transition-all group"
+              className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isCompactRole ? 'p-4 space-y-3' : 'p-5 space-y-4'} hover:shadow-md hover:border-sky-200 flex flex-col justify-between transition-all group`}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">

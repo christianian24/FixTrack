@@ -144,7 +144,7 @@ export const ConcernDetailPage: React.FC = () => {
     verifyConcern(concern.id, 'Workmanship verified and approved. Concern resolved.', currentUser);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-3">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
@@ -222,11 +222,11 @@ export const ConcernDetailPage: React.FC = () => {
       </div>
 
       {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Left 2 cols */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-3">
           {/* Main card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">
             <div>
               <h2 className="text-lg font-bold text-slate-800 leading-snug mb-3">{concern.title}</h2>
               <div className="text-sm text-slate-600 whitespace-pre-line leading-relaxed bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -305,7 +305,7 @@ export const ConcernDetailPage: React.FC = () => {
           </div>
 
           {/* Photos */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
             <PhotoGallery
               beforePhotos={concern.beforePhotos}
               afterPhotos={concern.afterPhotos}
@@ -321,7 +321,7 @@ export const ConcernDetailPage: React.FC = () => {
         </div>
 
         {/* Right col */}
-        <div className="space-y-5">
+        <div className="space-y-3">
           <TimelineView timeline={concern.timeline} currentStatus={concern.status} />
           <RoomRepairHistory currentConcernId={concern.id} roomId={concern.roomId} roomName={concern.roomName} allConcerns={concerns} />
         </div>

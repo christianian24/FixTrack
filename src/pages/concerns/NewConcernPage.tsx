@@ -73,7 +73,8 @@ const getSubmitErrors = (error: unknown): Record<string, string> => {
 };
 
 export const NewConcernPage: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, currentRole } = useAuth();
+  const isReporter = currentRole === 'REPORTER';
   const { concerns, buildings, rooms, categories, createConcern, uploadConcernPhoto } = useFacilityCare();
   const navigate = useNavigate();
 
@@ -182,7 +183,7 @@ export const NewConcernPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className={isReporter ? 'max-w-3xl mx-auto space-y-3' : 'max-w-3xl mx-auto space-y-4'}>
       {/* Header */}
       <div>
         <Link to="/concerns" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-3 transition-colors">
@@ -209,9 +210,9 @@ export const NewConcernPage: React.FC = () => {
         />
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className={isReporter ? 'space-y-3' : 'space-y-4'}>
         {/* Step 1: Basic Details */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isReporter ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
           <StepHeader step={1} title="Basic Concern Details" subtitle="Describe what's broken or needs attention." />
 
           <div>
@@ -242,10 +243,10 @@ export const NewConcernPage: React.FC = () => {
         </div>
 
         {/* Step 2: Location & Category */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isReporter ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
           <StepHeader step={2} title="Location & Category" subtitle="Where is the problem located?" />
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className={`grid grid-cols-1 sm:grid-cols-3 ${isReporter ? 'gap-3' : 'gap-4'}`}>
             <div>
               <FieldLabel label="Category" required icon={<FolderTree className="w-3.5 h-3.5 text-sky-500" />} />
               <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="select-base" id="concern-category">
@@ -292,10 +293,10 @@ export const NewConcernPage: React.FC = () => {
         </div>
 
         {/* Step 3: Safety & Priority */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isReporter ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
           <StepHeader step={3} title="Safety & Priority Assessment" subtitle="Help us understand the urgency and impact." />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${isReporter ? 'gap-3' : 'gap-4'}`}>
             <div>
               <FieldLabel label="Safety Risk Level" icon={<AlertTriangle className="w-3.5 h-3.5 text-amber-500" />} />
               <select value={safetyRisk} onChange={(e) => setSafetyRisk(e.target.value as SafetyRisk)} className="select-base" id="concern-safety">
@@ -326,20 +327,20 @@ export const NewConcernPage: React.FC = () => {
         </div>
 
         {/* Step 4: Photos */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isReporter ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
           <StepHeader step={4} title="Photo Evidence" subtitle="Upload photos of the issue (optional but strongly recommended)." />
           <PhotoUploadZone photos={photos} onChange={setPhotos} onFiles={setPhotoFiles} maxPhotos={4} />
           {formErrors.submit && <p className="text-sm text-rose-600">{formErrors.submit}</p>}
         </div>
 
         {/* Submit bar */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center justify-between gap-4">
+        <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center justify-between ${isReporter ? 'gap-3' : 'gap-4'}`}>
           <p className="text-sm text-slate-500">
             Submitting as <strong className="text-slate-800">{currentUser.firstName} {currentUser.lastName}</strong>
             <span className="text-slate-400"> ({currentUser.userType})</span>
           </p>
 
-          <div className="flex items-center gap-3">
+          <div className={`flex items-center ${isReporter ? 'gap-2' : 'gap-3'}`}>
             <button
               type="button"
               onClick={() => navigate('/concerns')}

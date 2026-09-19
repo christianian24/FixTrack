@@ -20,11 +20,7 @@ import {
   CalendarDays,
   Bell,
   MapPin,
-  FileSpreadsheet,
   Users,
-  Building as BuildingIcon,
-  DoorOpen,
-  FolderTree,
 } from 'lucide-react';
 import {
   BarChart,
@@ -45,7 +41,7 @@ const Section: React.FC<{ children: React.ReactNode; className?: string }> = ({
   children,
   className = '',
 }) => (
-  <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-5 ${className}`}>
+  <div className={`min-w-0 bg-white rounded-xl border border-slate-200 shadow-sm p-3 ${className}`}>
     {children}
   </div>
 );
@@ -55,7 +51,7 @@ const SectionHeader: React.FC<{
   subtitle?: string;
   action?: React.ReactNode;
 }> = ({ title, subtitle, action }) => (
-  <div className="flex items-start justify-between mb-4">
+  <div className="flex items-start justify-between mb-2.5">
     <div>
       <h3 className="text-sm font-bold text-slate-800">{title}</h3>
       {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
@@ -75,7 +71,7 @@ const ConcernRow: React.FC<{
 }> = ({ to, reportNumber, location, title, priority, status }) => (
   <Link
     to={to}
-    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-3 rounded-xl hover:bg-slate-50 transition-colors group"
+    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2.5 px-2 rounded-lg hover:bg-slate-50 transition-colors group"
   >
     <div className="min-w-0 space-y-0.5">
       <div className="flex items-center gap-2 flex-wrap">
@@ -114,6 +110,10 @@ export const DashboardPage: React.FC = () => {
     return 'Good evening';
   };
 
+  const adminActionClasses = currentRole === 'ADMINISTRATOR'
+    ? 'inline-flex items-center gap-2 px-4 py-2.5 bg-red-500 text-white rounded-xl font-semibold text-sm hover:bg-red-600 transition-colors flex-shrink-0 shadow-sm'
+    : 'inline-flex items-center gap-2 px-4 py-2.5 bg-sky-500 text-white rounded-xl font-semibold text-sm hover:bg-sky-600 transition-colors flex-shrink-0 shadow-sm';
+
   // ── Role 1: Reporter (Student / Faculty) ────────────────────────
   if (currentRole === 'REPORTER') {
     const myConcerns = concerns.filter(c => c.reporterId === currentUser.id);
@@ -125,21 +125,21 @@ export const DashboardPage: React.FC = () => {
     const latestStepIndex = latestConcern ? STATUS_STEPS.findIndex(s => s.key === latestConcern.status) : -1;
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         {/* Welcome banner */}
-        <div className="bg-gradient-to-r from-sky-500 to-sky-600 rounded-2xl p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm shadow-sky-200">
+        <div className="bg-white rounded-2xl p-4 text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm border border-slate-200">
           <div>
-            <p className="text-sky-100 text-sm">{greeting()}, {currentUser.firstName}</p>
+            <p className="text-slate-500 text-sm">{greeting()}, {currentUser.firstName}</p>
             <h1 className="text-xl font-bold mt-0.5">{(currentUser as any).department ?? 'School Facility Portal'}</h1>
-            <p className="text-sky-100 text-sm mt-1">Track and manage your facility concern reports below.</p>
+            <p className="text-slate-500 text-sm mt-1">Track and manage your facility concern reports below.</p>
           </div>
-          <Link to="/concerns/new" id="report-concern-btn" className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-sky-600 rounded-xl font-semibold text-sm hover:bg-sky-50 transition-colors flex-shrink-0 shadow-sm">
+          <Link to="/concerns/new" id="report-concern-btn" className={adminActionClasses}>
             <PlusCircle className="w-4 h-4" /> Report a Concern
           </Link>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard title="My Reports"     value={myConcerns.length} icon={FileText}     subtitle="Total concerns filed" />
           <StatCard title="Pending Review" value={pending}           icon={Clock}        subtitle="Awaiting triage"   iconBgColor="bg-amber-50"   iconColor="text-amber-600" />
           <StatCard title="In Progress"    value={inProgress}        icon={Wrench}       subtitle="Being repaired"    iconBgColor="bg-violet-50"  iconColor="text-violet-600" />
@@ -147,7 +147,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Status tracker + Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <Section className="lg:col-span-2">
             <SectionHeader
               title="Latest Report — Live Status"
@@ -195,7 +195,7 @@ export const DashboardPage: React.FC = () => {
             )}
           </Section>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <Section>
               <SectionHeader title="Quick Actions" />
               <div className="space-y-2">
@@ -214,14 +214,14 @@ export const DashboardPage: React.FC = () => {
               </div>
             </Section>
             <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50 to-indigo-50 border border-sky-100">
-              <p className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1.5">💡 Pro Tip</p>
+              <p className="text-[10px] font-bold text-sky-700 uppercase tracking-widest mb-1.5">Pro Tip</p>
               <p className="text-xs text-slate-600 leading-relaxed">Include a clear photo when reporting — concerns with photos are resolved <span className="font-semibold text-sky-700">2× faster</span> on average.</p>
             </div>
           </div>
         </div>
 
         {/* Status breakdown + recent reports */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <Section>
             <SectionHeader title="Reports by Status" subtitle="How your concerns are distributed" />
             {myConcerns.length === 0 ? (
@@ -282,21 +282,21 @@ export const DashboardPage: React.FC = () => {
     ];
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         {/* Banner */}
-        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm shadow-emerald-200">
+        <div className="bg-white rounded-2xl p-4 text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm border border-slate-200">
           <div>
-            <p className="text-emerald-100 text-sm">{greeting()}, {currentUser.firstName}</p>
+            <p className="text-slate-500 text-sm">{greeting()}, {currentUser.firstName}</p>
             <h1 className="text-xl font-bold mt-0.5">My Maintenance Tasks</h1>
-            <p className="text-emerald-100 text-sm mt-1">{openTasks.length > 0 ? `${openTasks.length} open work order${openTasks.length > 1 ? 's' : ''} — ${highPriority.length} high/critical.` : 'All tasks complete — great job! 🎉'}</p>
+            <p className="text-slate-500 text-sm mt-1">{openTasks.length > 0 ? `${openTasks.length} open work order${openTasks.length > 1 ? 's' : ''} (${highPriority.length} high/critical).` : 'All tasks complete.'}</p>
           </div>
-          <Link to="/tasks" className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-emerald-600 rounded-xl font-semibold text-sm hover:bg-emerald-50 transition-colors flex-shrink-0 shadow-sm">
+          <Link to="/tasks" className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-semibold text-sm hover:bg-emerald-600 transition-colors flex-shrink-0 shadow-sm">
             <CheckSquare className="w-4 h-4" /> Work Order Queue
           </Link>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard title="Assigned"      value={myTasks.length}         icon={CheckSquare}  subtitle={`${pendingAcceptance.length} pending acceptance`} />
           <StatCard title="In Progress"   value={inProgressTasks.length} icon={Wrench}       subtitle="Under active repair"  iconBgColor="bg-violet-50"  iconColor="text-violet-600" />
           <StatCard title="High Priority" value={highPriority.length}    icon={Flame}        subtitle="Urgent or critical"   iconBgColor="bg-rose-50"    iconColor="text-rose-600" />
@@ -304,7 +304,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Active work + Quick actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <Section className="lg:col-span-2">
             <SectionHeader
               title="Active Work"
@@ -337,7 +337,7 @@ export const DashboardPage: React.FC = () => {
             )}
           </Section>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <Section>
               <SectionHeader title="Quick Actions" />
               <div className="space-y-2">
@@ -367,7 +367,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Weekly chart + work orders list */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <Section>
             <SectionHeader title="This Week's Output" subtitle="Tasks completed per day" />
             <div className="h-36 w-full">
@@ -433,27 +433,37 @@ export const DashboardPage: React.FC = () => {
     const awaitingVerification = concerns.filter(c => c.status === 'COMPLETED');
     const criticalConcerns     = concerns.filter(c => c.priority === 'CRITICAL' && c.status !== 'CLOSED');
     const highConcerns         = concerns.filter(c => c.priority === 'HIGH' && c.status !== 'CLOSED');
+    const supervisorStatusData = [
+      { name: 'Pending Triage', value: pendingTriage.length, color: '#F59E0B' },
+      { name: 'Active Repairs', value: activeRepairs.length, color: '#0284C7' },
+      { name: 'Awaiting Verify', value: awaitingVerification.length, color: '#10B981' },
+    ];
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         {/* Banner */}
-        <div className="bg-gradient-to-r from-indigo-500 to-violet-500 rounded-2xl p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm shadow-indigo-200">
+        <div className="bg-white rounded-2xl p-4 text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm border border-slate-200">
           <div>
-            <p className="text-indigo-100 text-sm">{greeting()}, {currentUser.firstName}</p>
+            <p className="text-slate-500 text-sm">{greeting()}, {currentUser.firstName}</p>
             <h1 className="text-xl font-bold mt-0.5">Maintenance Supervisor Overview</h1>
-            <p className="text-indigo-100 text-sm mt-1">
+            <p className="text-slate-500 text-sm mt-1">
               {criticalConcerns.length > 0
                 ? `${criticalConcerns.length} critical concern${criticalConcerns.length > 1 ? 's' : ''} require immediate dispatch.`
                 : 'Campus operations normal — triage, dispatch, and verify repairs below.'}
             </p>
           </div>
-          <Link to="/manage" className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-semibold text-sm hover:bg-indigo-50 transition-colors flex-shrink-0 shadow-sm">
-            <Wrench className="w-4 h-4" /> Dispatch & Triage
-          </Link>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link to="/analytics" className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-100 transition-colors border border-slate-200">
+              <Activity className="w-4 h-4" /> Analytics
+            </Link>
+            <Link to="/manage" className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-500 text-white rounded-xl font-semibold text-sm hover:bg-indigo-600 transition-colors shadow-sm">
+              <Wrench className="w-4 h-4" /> Dispatch & Triage
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <StatCard title="Unassigned"      value={unassigned.length}           icon={Clock}       subtitle="Needs dispatch"     iconBgColor="bg-amber-50"   iconColor="text-amber-600" />
           <StatCard title="Pending Triage"  value={pendingTriage.length}        icon={FileText}    subtitle="Awaiting review"    iconBgColor="bg-sky-50"     iconColor="text-sky-600" />
           <StatCard title="Active Repairs"  value={activeRepairs.length}        icon={Wrench}      subtitle="In progress"        iconBgColor="bg-violet-50"  iconColor="text-violet-600" />
@@ -480,7 +490,7 @@ export const DashboardPage: React.FC = () => {
         )}
 
         {/* Main content grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 
           {/* Needs assignment */}
           <Section className="lg:col-span-2">
@@ -519,27 +529,31 @@ export const DashboardPage: React.FC = () => {
             )}
           </Section>
 
-          {/* Quick actions + workload summary */}
-          <div className="space-y-4">
-            <Section>
-              <SectionHeader title="Quick Actions" />
-              <div className="space-y-2">
-                <Link to="/manage" className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0"><Wrench className="w-4 h-4 text-white" /></div>
-                  <div><p className="text-xs font-bold text-indigo-800">Dispatch & Triage</p><p className="text-[10px] text-indigo-600">Assign technicians to concerns</p></div>
-                </Link>
-                <Link to="/concerns" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0"><FileText className="w-4 h-4 text-slate-600" /></div>
-                  <div><p className="text-xs font-bold text-slate-700">All Concerns</p><p className="text-[10px] text-slate-500">Browse full report list</p></div>
-                </Link>
-                <Link to="/analytics" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0"><Activity className="w-4 h-4 text-violet-600" /></div>
-                  <div><p className="text-xs font-bold text-slate-700">Analytics</p><p className="text-[10px] text-slate-500">Performance & SLA trends</p></div>
-                </Link>
-                <Link to="/reports" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0"><FileSpreadsheet className="w-4 h-4 text-emerald-600" /></div>
-                  <div><p className="text-xs font-bold text-slate-700">Reports</p><p className="text-[10px] text-slate-500">Export maintenance data</p></div>
-                </Link>
+          {/* Workload summary */}
+          <div className="space-y-3">
+            {/* Status breakdown */}
+            <Section className="flex min-w-0 flex-col">
+              <SectionHeader title="Status Breakdown" subtitle="Current repair queue" />
+              <div className="h-28 w-full flex-none relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={supervisorStatusData} cx="50%" cy="50%" innerRadius={30} outerRadius={48} paddingAngle={2} dataKey="value">
+                      {supervisorStatusData.map((entry, index) => (<Cell key={`supervisor-status-${index}`} fill={entry.color} />))}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: '#E2E8F0', borderRadius: '12px', fontSize: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-xl font-bold text-slate-800">{pendingTriage.length + activeRepairs.length + awaitingVerification.length}</span>
+                </div>
+              </div>
+              <div className="space-y-1.5 pt-2 border-t border-slate-100 text-xs">
+                {supervisorStatusData.map(item => (
+                  <div key={item.name} className="flex items-center justify-between text-slate-600">
+                    <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />{item.name}</span>
+                    <span className="font-semibold text-slate-800">{item.value}</span>
+                  </div>
+                ))}
               </div>
             </Section>
 
@@ -563,7 +577,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Bottom row: Active repairs + Awaiting sign-off */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {/* Active repairs */}
           <Section>
             <SectionHeader
@@ -631,7 +645,7 @@ export const DashboardPage: React.FC = () => {
   const completed      = concerns.filter(c => c.status === 'COMPLETED' || c.status === 'CLOSED').length;
   const critical       = concerns.filter(c => c.priority === 'CRITICAL' && c.status !== 'CLOSED').length;
   const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const recentConcerns = [...concerns].slice(0, 6);
+  const recentConcerns = [...concerns];
 
   const buildingChartData = buildings.map(b => ({
     name: b.code,
@@ -656,28 +670,28 @@ export const DashboardPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Admin banner */}
-      <div className="bg-gradient-to-r from-rose-500 to-pink-500 rounded-2xl p-6 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm shadow-rose-200">
+      <div className="bg-white rounded-2xl p-4 text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm border border-slate-200">
         <div>
-          <p className="text-rose-100 text-sm">{greeting()}, {currentUser.firstName}</p>
+          <p className="text-slate-500 text-sm">{greeting()}, {currentUser.firstName}</p>
           <h1 className="text-xl font-bold mt-0.5">Facility Management Overview</h1>
-          <p className="text-rose-100 text-sm mt-1">
+          <p className="text-slate-500 text-sm mt-1">
             {critical > 0 ? `${critical} critical concern${critical > 1 ? 's' : ''} require immediate attention.` : `Campus resolution rate: ${completionRate}% — ${total} total concerns tracked.`}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Link to="/analytics" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/20 text-white rounded-xl font-semibold text-sm hover:bg-white/30 transition-colors border border-white/30">
+          <Link to="/analytics" className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-100 transition-colors border border-slate-200">
             <Activity className="w-4 h-4" /> Analytics
           </Link>
-          <Link to="/admin/users" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-rose-600 rounded-xl font-semibold text-sm hover:bg-rose-50 transition-colors shadow-sm">
+          <Link to="/admin/users" className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-500 text-white rounded-xl font-semibold text-sm hover:bg-red-600 transition-colors shadow-sm">
             <Users className="w-4 h-4" /> Manage Users
           </Link>
         </div>
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <StatCard title="Total Reports"   value={total}               icon={Layers}     subtitle="All recorded incidents" />
         <StatCard title="Pending Triage"  value={pending}             icon={Clock}      subtitle="Awaiting response"    iconBgColor="bg-amber-50"   iconColor="text-amber-600" />
         <StatCard title="Active Repairs"  value={inProgress}          icon={Wrench}     subtitle="Field maintenance"    iconBgColor="bg-violet-50"  iconColor="text-violet-600" />
@@ -686,33 +700,33 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Bar chart */}
-        <Section className="lg:col-span-2">
+        <Section className="flex min-w-0 flex-col">
           <SectionHeader
             title="Reports by Building"
             subtitle="Distribution of concerns across campus buildings"
             action={<Link to="/admin/buildings" className="text-xs font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1">Buildings <ArrowRight className="w-3.5 h-3.5" /></Link>}
           />
-          <div className="h-60 w-full">
+          <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={buildingChartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: '#E2E8F0', borderRadius: '12px', color: '#1E293B', fontSize: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }} cursor={{ fill: 'rgba(2,132,199,0.05)' }} />
-                <Bar dataKey="concerns" fill="#0284C7" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="concerns" fill="#EF4444" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Section>
 
         {/* Donut + legend */}
-        <Section className="flex flex-col">
+        <Section className="flex min-w-0 flex-col">
           <SectionHeader title="Status Breakdown" subtitle="Current queue distribution" />
-          <div className="h-44 w-full relative flex-1 flex items-center justify-center my-1">
+          <div className="h-32 w-full flex-none relative flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={statusData} cx="50%" cy="50%" innerRadius={46} outerRadius={68} paddingAngle={3} dataKey="value">
+                <Pie data={statusData} cx="50%" cy="50%" innerRadius={32} outerRadius={52} paddingAngle={2} dataKey="value">
                   {statusData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                 </Pie>
                 <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: '#E2E8F0', borderRadius: '12px', fontSize: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }} />
@@ -720,7 +734,6 @@ export const DashboardPage: React.FC = () => {
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-2xl font-bold text-slate-800">{completionRate}%</span>
-              <span className="text-[10px] text-slate-400 uppercase tracking-widest">Resolved</span>
             </div>
           </div>
           <div className="space-y-2 pt-3 border-t border-slate-100 text-xs">
@@ -734,11 +747,11 @@ export const DashboardPage: React.FC = () => {
         </Section>
       </div>
 
-      {/* Bottom row: recent concerns + priority breakdown + quick admin links */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        {/* Recent concerns feed */}
-        <Section className="lg:col-span-2">
+      {/* Lower workspace: recent concerns on the left; priority and buildings on the right */}
+      <div className="grid grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="space-y-3">
+          {/* Recent concerns feed */}
+        <Section className="flex min-w-0 flex-col">
           <SectionHeader
             title={`Recent Concerns (${total})`}
             subtitle="Latest reports across all buildings"
@@ -747,15 +760,15 @@ export const DashboardPage: React.FC = () => {
           {recentConcerns.length === 0 ? (
             <div className="py-10 text-center text-sm text-slate-400">No concerns on record yet.</div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="max-h-[420px] overflow-y-auto overscroll-contain divide-y divide-slate-100 pr-1 sm:max-h-[468px]">
               {recentConcerns.map(c => (
-                <div key={c.id} className="flex items-center justify-between gap-3 py-3 px-2 rounded-xl hover:bg-slate-50 transition-colors">
+                <div key={c.id} className="grid min-h-[78px] grid-cols-1 gap-2 rounded-xl px-2 py-3 hover:bg-slate-50 transition-colors sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-slate-500">#{c.reportNumber}</span>
                       <span className="text-xs text-slate-400 flex items-center gap-0.5"><MapPin className="w-3 h-3" />{c.buildingName} · {c.roomName}</span>
                     </div>
-                    <p className="text-sm font-medium text-slate-800 truncate">{c.title}</p>
+                    <p className="break-words text-sm font-medium leading-5 text-slate-800">{c.title}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <PriorityBadge priority={c.priority} size="sm" />
@@ -765,35 +778,14 @@ export const DashboardPage: React.FC = () => {
               ))}
             </div>
           )}
-        </Section>
 
-        {/* Right column */}
-        <div className="space-y-4">
-          {/* Quick admin links */}
-          <Section>
-            <SectionHeader title="Admin Quick Links" />
-            <div className="space-y-2">
-              <Link to="/admin/users" className="flex items-center gap-3 p-3 rounded-xl bg-rose-50 border border-rose-100 hover:bg-rose-100 transition-colors">
-                <div className="w-8 h-8 rounded-lg bg-rose-500 flex items-center justify-center flex-shrink-0"><Users className="w-4 h-4 text-white" /></div>
-                <div><p className="text-xs font-bold text-rose-800">User Directory</p><p className="text-[10px] text-rose-600">Manage accounts & roles</p></div>
-              </Link>
-              <Link to="/admin/buildings" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0"><BuildingIcon className="w-4 h-4 text-slate-600" /></div>
-                <div><p className="text-xs font-bold text-slate-700">Buildings</p><p className="text-[10px] text-slate-500">Campus building registry</p></div>
-              </Link>
-              <Link to="/admin/rooms" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0"><DoorOpen className="w-4 h-4 text-sky-600" /></div>
-                <div><p className="text-xs font-bold text-slate-700">Rooms</p><p className="text-[10px] text-slate-500">Room and space registry</p></div>
-              </Link>
-              <Link to="/admin/categories" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0"><FolderTree className="w-4 h-4 text-violet-600" /></div>
-                <div><p className="text-xs font-bold text-slate-700">Categories</p><p className="text-[10px] text-slate-500">Concern category taxonomy</p></div>
-              </Link>
-            </div>
-          </Section>
+        </Section>
+        </div>
+
+        <div className="flex h-full min-w-0 flex-col gap-3">
 
           {/* Priority breakdown */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+          <div className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm space-y-2.5">
             <p className="text-xs font-bold text-slate-700">Open Concerns by Priority</p>
             {priorityData.map(p => (
               <div key={p.label}>
@@ -807,11 +799,9 @@ export const DashboardPage: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
-      </div>
 
-      {/* Top buildings leaderboard */}
-      <Section>
+          {/* Top buildings leaderboard */}
+          <Section className="min-w-0 flex-1">
         <SectionHeader
           title="Top Buildings by Report Volume"
           subtitle="Buildings with the most filed concerns this academic year"
@@ -836,7 +826,9 @@ export const DashboardPage: React.FC = () => {
             </div>
           ))}
         </div>
-      </Section>
+          </Section>
+        </div>
+      </div>
     </div>
   );
 };

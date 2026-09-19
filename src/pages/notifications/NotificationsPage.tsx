@@ -14,8 +14,9 @@ import {
 } from 'lucide-react';
 
 export const NotificationsPage: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, currentRole } = useAuth();
   const { notifications, notificationError, markNotificationAsRead, markAllNotificationsAsRead } = useFacilityCare();
+  const isSupervisor = currentRole === 'MAINTENANCE_SUPERVISOR';
 
   const [filter, setFilter] = useState<'ALL' | 'UNREAD'>('ALL');
 
@@ -56,8 +57,8 @@ export const NotificationsPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className={isSupervisor ? 'max-w-4xl mx-auto space-y-3' : 'max-w-4xl mx-auto space-y-4'}>
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between ${isSupervisor ? 'gap-3' : 'gap-4'}`}>
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <Bell className="w-6 h-6 text-sky-600" /> Notification Inbox
@@ -112,12 +113,12 @@ export const NotificationsPage: React.FC = () => {
           description="You are fully up to date with campus facility announcements and task updates."
         />
       ) : (
-        <div className="space-y-3">
+        <div className={isSupervisor ? 'space-y-2' : 'space-y-3'}>
           {filteredNotifs.map((n) => (
             <div
               key={n.id}
               onClick={() => markNotificationAsRead(n.id)}
-              className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-4 cursor-pointer ${
+              className={`${isSupervisor ? 'p-3 gap-3' : 'p-4 gap-4'} rounded-2xl border transition-all flex items-start justify-between cursor-pointer ${
                 n.read
                   ? 'border-slate-200 bg-white hover:border-slate-300'
                   : 'border-sky-200 bg-sky-50/40 shadow-sm hover:border-sky-300'

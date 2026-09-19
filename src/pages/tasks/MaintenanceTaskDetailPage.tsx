@@ -27,6 +27,10 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { currentUser, currentRole } = useAuth();
   const { concerns, updateConcernStatus, uploadConcernPhoto, deleteConcernPhoto } = useFacilityCare();
+  const isTechnician = currentRole === 'MAINTENANCE_PERSONNEL';
+  const backLinkClasses = isTechnician
+    ? 'inline-flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 mb-2 transition-colors'
+    : 'inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-2 transition-colors';
 
   const task = concerns.find(c => c.id === id);
 
@@ -46,7 +50,7 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
     return (
       <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm">
         <p className="text-slate-800 font-semibold mb-3">Work order not found.</p>
-        <Link to="/tasks" className="text-sky-600 text-sm font-medium hover:underline">
+        <Link to="/tasks" className={isTechnician ? 'text-emerald-600 text-sm font-medium hover:underline' : 'text-sky-600 text-sm font-medium hover:underline'}>
           ← Back to Work Orders
         </Link>
       </div>
@@ -105,11 +109,11 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <Link to="/tasks" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-2 transition-colors">
+          <Link to="/tasks" className={backLinkClasses}>
             <ArrowLeft className="w-4 h-4" /> Back to Work Orders
           </Link>
           <div className="flex flex-wrap items-center gap-3">
@@ -122,15 +126,15 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2">
           {task.status === 'ASSIGNED' && (
-            <button onClick={handleAcceptTask} className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm">
+            <button onClick={handleAcceptTask} className={`${isTechnician ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'btn-primary'} inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl shadow-sm transition-colors`}>
               <Wrench className="w-4 h-4" /> Accept & Begin Work
             </button>
           )}
 
           {task.status === 'IN_PROGRESS' && (
             <>
-              <button onClick={() => setProgressModalOpen(true)} className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2.5 text-sm">
-                <PlusCircle className="w-4 h-4 text-sky-500" /> Log Work Note
+              <button onClick={() => setProgressModalOpen(true)} className={`${isTechnician ? 'bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100' : 'btn-secondary'} inline-flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-xl transition-colors`}>
+                <PlusCircle className={`w-4 h-4 ${isTechnician ? 'text-emerald-500' : 'text-sky-500'}`} /> Log Work Note
               </button>
               <button onClick={() => setMaterialsModalOpen(true)} className="inline-flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors">
                 <Package className="w-4 h-4" /> Hold for Parts
@@ -144,7 +148,7 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
           {task.status === 'WAITING_FOR_MATERIALS' && (
             <button
               onClick={() => updateConcernStatus(task.id, 'IN_PROGRESS', 'Parts received. Resumed repair work.', undefined, currentUser)}
-              className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm"
+              className={`${isTechnician ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'btn-primary'} inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl shadow-sm transition-colors`}
             >
               <Wrench className="w-4 h-4" /> Parts Received — Resume
             </button>
@@ -153,11 +157,11 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
       </div>
 
       {/* Main content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left 2 cols */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-4">
           {/* Overview card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
             <div>
               <h2 className="text-lg font-bold text-slate-800 mb-3">{task.title}</h2>
               <div className="text-sm text-slate-600 whitespace-pre-line leading-relaxed bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -182,7 +186,7 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
           </div>
 
           {/* Photos */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
             <PhotoGallery
               beforePhotos={task.beforePhotos}
               afterPhotos={task.afterPhotos}
@@ -209,7 +213,7 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <ModalBtn onClick={() => setProgressModalOpen(false)}>Cancel</ModalBtn>
-            <ModalBtn type="submit" color="bg-sky-500 hover:bg-sky-600 text-white">Save Note</ModalBtn>
+            <ModalBtn type="submit" color={isTechnician ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-sky-500 hover:bg-sky-600 text-white'}>Save Note</ModalBtn>
           </div>
         </form>
       </Modal>
@@ -254,7 +258,7 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
           {completionError && <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">{completionError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <ModalBtn onClick={() => setCompleteModalOpen(false)}>Cancel</ModalBtn>
-            <ModalBtn type="submit" disabled={completionSubmitting} color="bg-emerald-500 hover:bg-emerald-600 text-white">{completionSubmitting ? 'Submitting...' : 'Submit for Verification'}</ModalBtn>
+            <ModalBtn type="submit" disabled={completionSubmitting} color={isTechnician ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}>{completionSubmitting ? 'Submitting...' : 'Submit for Verification'}</ModalBtn>
           </div>
         </form>
       </Modal>

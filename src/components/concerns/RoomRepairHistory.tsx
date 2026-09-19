@@ -21,8 +21,8 @@ export const RoomRepairHistory: React.FC<RoomRepairHistoryProps> = ({
   const history = allConcerns.filter(c => c.roomId === roomId && c.id !== currentConcernId);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-xl bg-sky-50 flex items-center justify-center">
             <History className="w-3.5 h-3.5 text-sky-500" />

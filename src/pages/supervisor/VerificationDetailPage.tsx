@@ -47,7 +47,7 @@ export const VerificationDetailPage: React.FC = () => {
   const afterPhoto  = concern.afterPhotos[0]  || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80';
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
@@ -86,7 +86,7 @@ export const VerificationDetailPage: React.FC = () => {
       </div>
 
       {/* Before / After photos */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <Wrench className="w-4 h-4 text-sky-500" /> Before vs After Comparison
@@ -94,7 +94,7 @@ export const VerificationDetailPage: React.FC = () => {
           <p className="text-xs text-slate-400">Compare initial damage vs completion proof</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold text-amber-600">
               <span>BEFORE REPAIR</span>
@@ -124,9 +124,9 @@ export const VerificationDetailPage: React.FC = () => {
       </div>
 
       {/* Details + timeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-5">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
             <h3 className="text-base font-bold text-slate-800">{concern.title}</h3>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-600 space-y-1">

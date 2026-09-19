@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatCard } from '../../components/common/StatCard';
 import {
@@ -33,21 +34,23 @@ const chartTooltipStyle = {
   boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
 };
 
-const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-5 ${className}`}>
+const Card: React.FC<{ children: React.ReactNode; className?: string; compact?: boolean }> = ({ children, className = '', compact = false }) => (
+  <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${compact ? 'p-3' : 'p-4'} ${className}`}>
     {children}
   </div>
 );
 
 const CardTitle: React.FC<{ title: string; subtitle?: string; icon?: React.ReactNode }> = ({ title, subtitle, icon }) => (
-  <div className="mb-4">
+  <div className="mb-3">
     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">{icon}{title}</h3>
     {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
   </div>
 );
 
 export const AnalyticsPage: React.FC = () => {
+  const { currentRole } = useAuth();
   const { concerns, buildings, categories, users } = useFacilityCare();
+  const isCompactRole = currentRole === 'MAINTENANCE_SUPERVISOR' || currentRole === 'ADMINISTRATOR';
 
   const overview       = calculateSystemOverviewStats(concerns);
   const buildingStats  = calculateBuildingStats(concerns, buildings);
@@ -63,7 +66,7 @@ export const AnalyticsPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className={isCompactRole ? 'space-y-3' : 'space-y-4'}>
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
@@ -75,7 +78,7 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={isCompactRole ? 'grid grid-cols-2 lg:grid-cols-4 gap-3' : 'grid grid-cols-2 lg:grid-cols-4 gap-4'}>
         <StatCard title="Resolution Rate"   value={`${overview.overallCompletionRate}%`} icon={TrendingUp}    subtitle="Closed vs total" />
         <StatCard title="Avg Turnaround"    value={`${overview.avgRepairHours}h`}        icon={Clock}         subtitle="Dispatch to done" />
         <StatCard title="Top Building"      value={overview.mostReportedBuilding}         icon={Building}      subtitle="Highest incidents" />
@@ -83,11 +86,11 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className={isCompactRole ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : 'grid grid-cols-1 lg:grid-cols-2 gap-4'}>
         {/* Monthly trends */}
-        <Card>
+        <Card compact={isCompactRole}>
           <CardTitle title="Monthly Trends" subtitle="Reports filed vs repairs resolved (6 months)" />
-          <div className="h-60 w-full">
+          <div className="h-52 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyTrends} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
@@ -107,9 +110,9 @@ export const AnalyticsPage: React.FC = () => {
         </Card>
 
         {/* Building bar chart */}
-        <Card>
+        <Card compact={isCompactRole}>
           <CardTitle title="Incidents by Building" subtitle="Reported vs resolved per campus building" />
-          <div className="h-60 w-full">
+          <div className="h-52 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={buildingStats} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                 <XAxis dataKey="buildingName" stroke="#94A3B8" fontSize={11} tickLine={false} axisLine={false} />
@@ -123,9 +126,9 @@ export const AnalyticsPage: React.FC = () => {
         </Card>
 
         {/* Category breakdown */}
-        <Card>
+        <Card compact={isCompactRole}>
           <CardTitle title="Top Incident Categories" subtitle="Most frequent facility concerns reported" />
-          <div className="space-y-3">
+          <div className={isCompactRole ? 'space-y-2' : 'space-y-3'}>
             {categoryStats.map((stat, i) => {
               const colors = ['#0284C7', '#0EA5E9', '#38BDF8', '#7DD3FC', '#BAE6FD', '#E0F2FE'];
               return (
@@ -147,9 +150,9 @@ export const AnalyticsPage: React.FC = () => {
         </Card>
 
         {/* Status donut */}
-        <Card className="flex flex-col">
+        <Card className="flex flex-col" compact={isCompactRole}>
           <CardTitle title="Status Breakdown" subtitle="Allocation across all recorded incidents" />
-          <div className="h-48 w-full relative flex-1 flex items-center justify-center my-1">
+          <div className="h-44 w-full relative flex-1 flex items-center justify-center my-1">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={statusPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={72} paddingAngle={3} dataKey="value">
@@ -175,7 +178,7 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* Technician table */}
-      <Card>
+      <Card compact={isCompactRole}>
         <CardTitle
           title="Technician Performance"
           subtitle="Work order completion rates and turnaround benchmarks"
@@ -196,15 +199,15 @@ export const AnalyticsPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {techPerformance.map(tech => (
                 <tr key={tech.personnelId} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-3 px-3 whitespace-nowrap font-medium text-slate-800 flex items-center gap-2">
+                  <td className={`${isCompactRole ? 'py-2.5' : 'py-3'} px-3 whitespace-nowrap font-medium text-slate-800 flex items-center gap-2`}>
                     <span className="w-2 h-2 rounded-full bg-emerald-400" />
                     {tech.name}
                   </td>
-                  <td className="py-3 px-3 whitespace-nowrap text-slate-600">{tech.assigned}</td>
-                  <td className="py-3 px-3 whitespace-nowrap text-emerald-600 font-semibold">{tech.completed}</td>
-                  <td className="py-3 px-3 whitespace-nowrap text-sky-600">{tech.inProgress}</td>
-                  <td className="py-3 px-3 whitespace-nowrap text-slate-500">{tech.avgCompletionHours}h</td>
-                  <td className="py-3 px-3 whitespace-nowrap text-right">
+                  <td className={`${isCompactRole ? 'py-2.5' : 'py-3'} px-3 whitespace-nowrap text-slate-600`}>{tech.assigned}</td>
+                  <td className={`${isCompactRole ? 'py-2.5' : 'py-3'} px-3 whitespace-nowrap text-emerald-600 font-semibold`}>{tech.completed}</td>
+                  <td className={`${isCompactRole ? 'py-2.5' : 'py-3'} px-3 whitespace-nowrap text-sky-600`}>{tech.inProgress}</td>
+                  <td className={`${isCompactRole ? 'py-2.5' : 'py-3'} px-3 whitespace-nowrap text-slate-500`}>{tech.avgCompletionHours}h</td>
+                  <td className={`${isCompactRole ? 'py-2.5' : 'py-3'} px-3 whitespace-nowrap text-right`}>
                     <span className="font-bold text-slate-800">{tech.completionRate}%</span>
                   </td>
                 </tr>

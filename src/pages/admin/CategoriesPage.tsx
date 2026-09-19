@@ -63,8 +63,8 @@ export const CategoriesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <FolderTree className="w-6 h-6 text-sky-600" /> Facility Categories ({categories.length})
@@ -76,22 +76,22 @@ export const CategoriesPage: React.FC = () => {
 
         <button
           onClick={handleOpenAdd}
-          className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-sm self-start sm:self-auto rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" /> Add Category
         </button>
       </div>
 
       {/* Categories Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {categories.map((category) => {
           const isActive = category.status === 'ACTIVE';
           return (
             <div
               key={category.id}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-sky-200 p-5 flex flex-col justify-between space-y-4 transition-all"
+              className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-sky-200 p-3 flex flex-col justify-between space-y-2 transition-all"
             >
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
                     <Tag className="w-4 h-4" />
@@ -112,7 +112,7 @@ export const CategoriesPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] text-slate-400 font-medium">Default:</span>
                   <PriorityBadge priority={category.defaultPriorityHint} size="sm" />
@@ -218,7 +218,7 @@ export const CategoriesPage: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="btn-primary px-5 py-2 text-sm"
+              className="px-5 py-2 text-sm rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors shadow-sm"
             >
               {editingCategory ? 'Save Changes' : 'Create Category'}
             </button>

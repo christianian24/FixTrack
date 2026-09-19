@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { exportConcernsToCSV } from '../../services/exportService';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
@@ -12,7 +13,9 @@ import {
 } from 'lucide-react';
 
 export const ReportsPage: React.FC = () => {
+  const { currentRole } = useAuth();
   const { concerns, buildings, categories } = useFacilityCare();
+  const isSupervisor = currentRole === 'MAINTENANCE_SUPERVISOR';
 
   const [reportType, setReportType] = useState('MONTHLY');
   const [selectedBuilding, setSelectedBuilding] = useState('ALL');
@@ -48,8 +51,8 @@ export const ReportsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className={isSupervisor ? 'space-y-3' : 'space-y-4'}>
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between ${isSupervisor ? 'gap-3' : 'gap-4'}`}>
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <FileSpreadsheet className="w-6 h-6 text-sky-600" /> Facility Reports & Compliance
@@ -59,7 +62,7 @@ export const ReportsPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={handlePrint}
             className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-colors shadow-sm"
@@ -76,7 +79,7 @@ export const ReportsPage: React.FC = () => {
       </div>
 
       {/* Filter & Report Type Selector Box */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+      <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isSupervisor ? 'p-3' : 'p-4'} space-y-3`}>
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Filter className="w-4 h-4 text-sky-600" />
           <h3 className="text-sm font-bold text-slate-700">Report Parameters & Filter Scope</h3>
@@ -185,8 +188,8 @@ export const ReportsPage: React.FC = () => {
       </div>
 
       {/* Generated Report View */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+      <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isSupervisor ? 'p-4' : 'p-5'} space-y-3`}>
+        <div className={`flex flex-col sm:flex-row sm:items-center justify-between ${isSupervisor ? 'pb-3' : 'pb-4'} border-b border-slate-100 gap-2`}>
           <div>
             <h3 className="text-base font-bold text-slate-800">
               Campus Facility Report: <span className="text-sky-600">{reportType.replace(/_/g, ' ')}</span>
@@ -205,14 +208,14 @@ export const ReportsPage: React.FC = () => {
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-                <th className="py-3 px-4">Report #</th>
-                <th className="py-3 px-4">Concern Title</th>
-                <th className="py-3 px-4">Location</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Priority</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Assigned Personnel</th>
-                <th className="py-3 px-4">Date Logged</th>
+                <th className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'}`}>Report #</th>
+                <th className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'}`}>Concern Title</th>
+                <th className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'}`}>Location</th>
+                <th className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'}`}>Category</th>
+                <th className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'}`}>Priority</th>
+                <th className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'}`}>Status</th>
+                <th className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'}`}>Assigned Personnel</th>
+                <th className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'}`}>Date Logged</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -225,30 +228,30 @@ export const ReportsPage: React.FC = () => {
               ) : (
                 filteredConcerns.map(c => (
                   <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-xs text-slate-700 whitespace-nowrap">
+                    <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} font-semibold text-xs text-slate-700 whitespace-nowrap`}>
                       <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                         {c.reportNumber}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-medium text-slate-800 max-w-xs truncate">
+                    <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} font-medium text-slate-800 max-w-xs truncate`}>
                       {c.title}
                     </td>
-                    <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
+                    <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} text-slate-600 whitespace-nowrap`}>
                       {c.roomName} <span className="text-slate-400">({c.buildingName})</span>
                     </td>
-                    <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
+                    <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} text-slate-600 whitespace-nowrap`}>
                       {c.categoryName}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} whitespace-nowrap`}>
                       <PriorityBadge priority={c.priority} size="sm" />
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} whitespace-nowrap`}>
                       <StatusBadge status={c.status} size="sm" />
                     </td>
-                    <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
+                    <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} text-slate-600 whitespace-nowrap`}>
                       {c.assignedPersonnelName || <span className="text-slate-400 italic">Unassigned</span>}
                     </td>
-                    <td className="py-3 px-4 text-slate-400 text-xs whitespace-nowrap">
+                    <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} text-slate-400 text-xs whitespace-nowrap`}>
                       {formatDateOnly(c.createdAt)}
                     </td>
                   </tr>

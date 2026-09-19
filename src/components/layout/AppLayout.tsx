@@ -12,7 +12,6 @@ import {
   PlusCircle,
   CheckSquare,
   BarChart3,
-  FileSpreadsheet,
   Users,
   Building as BuildingIcon,
   DoorOpen,
@@ -87,7 +86,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 }) => (
   <div className="flex flex-col h-full">
     {/* Logo */}
-    <div className="px-5 py-5 border-b border-slate-100">
+    <div className="px-4 py-4 border-b border-slate-100">
       <Link to="/dashboard" className="flex items-center gap-3 group">
         <div className="w-9 h-9 rounded-xl bg-sky-500 text-white flex items-center justify-center shadow-sm flex-shrink-0">
           <School className="w-5 h-5" />
@@ -102,7 +101,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     </div>
 
     {/* User card */}
-    <div className="px-4 py-3 border-b border-slate-100">
+    <div className="px-3 py-2.5 border-b border-slate-100">
       <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl">
         <div className="relative flex-shrink-0">
           <UserAvatar user={currentUser} className="w-9 h-9 rounded-full object-cover border-2 border-white shadow-sm text-xs" />
@@ -118,27 +117,41 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     </div>
 
     {/* Nav */}
-    <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-      <p className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Navigation</p>
+    <nav className={`flex-1 px-3 ${currentRole === 'MAINTENANCE_PERSONNEL' ? 'py-2' : 'py-3'} space-y-0.5 overflow-y-auto`}>
+      <p className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Navigation</p>
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = locationPathname === item.path;
+        const activeClasses = currentRole === 'ADMINISTRATOR'
+          ? 'bg-red-50 text-red-700 font-semibold'
+          : currentRole === 'MAINTENANCE_SUPERVISOR'
+          ? 'bg-indigo-50 text-indigo-700 font-semibold'
+          : currentRole === 'MAINTENANCE_PERSONNEL'
+          ? 'bg-emerald-50 text-emerald-700 font-semibold'
+          : 'bg-sky-50 text-sky-700 font-semibold';
+        const activeIconColor = currentRole === 'ADMINISTRATOR'
+          ? 'text-red-500'
+          : currentRole === 'MAINTENANCE_SUPERVISOR'
+          ? 'text-indigo-500'
+          : currentRole === 'MAINTENANCE_PERSONNEL'
+          ? 'text-emerald-500'
+          : 'text-sky-500';
 
         return (
           <NavLink
             key={item.path}
             to={item.path}
             onClick={onCloseMobile}
-            className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`flex items-center justify-between ${currentRole === 'MAINTENANCE_PERSONNEL' ? 'px-2.5 py-1.5' : 'px-3 py-2'} rounded-xl text-sm font-medium transition-all ${
               isActive
-                ? 'bg-sky-50 text-sky-700 font-semibold'
+                ? activeClasses
                 : item.primary
                 ? 'btn-primary shadow-sm'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <Icon className={`w-4 h-4 ${isActive ? 'text-sky-500' : item.primary ? 'text-white' : 'text-slate-400'}`} />
+              <Icon className={`w-4 h-4 ${isActive ? activeIconColor : item.primary ? 'text-white' : 'text-slate-400'}`} />
               <span>{item.label}</span>
             </div>
             {item.badge !== undefined && item.badge > 0 && (
@@ -152,7 +165,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     </nav>
 
     {/* Footer */}
-    <div className="px-4 py-3 border-t border-slate-100 space-y-2">
+    <div className="px-3 py-2.5 border-t border-slate-100 space-y-1.5">
       <div className="flex items-center justify-between px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
         <span className="text-[10px] text-emerald-700 font-medium flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
@@ -271,7 +284,6 @@ export const AppLayout: React.FC = () => {
           { label: 'All Concerns', path: '/concerns', icon: FileText },
           { label: 'Manage & Dispatch', path: '/manage', icon: Wrench },
           { label: 'Analytics', path: '/analytics', icon: BarChart3 },
-          { label: 'Reports', path: '/reports', icon: FileSpreadsheet },
           { label: 'Notifications', path: '/notifications', icon: Bell, badge: unreadNotifs },
           { label: 'My Profile', path: '/profile', icon: Users },
           { label: 'Settings', path: '/settings', icon: Settings },
@@ -279,8 +291,8 @@ export const AppLayout: React.FC = () => {
       case 'ADMINISTRATOR':
         return [
           { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+          { label: 'All Concerns', path: '/concerns', icon: FileText },
           { label: 'Analytics', path: '/analytics', icon: BarChart3 },
-          { label: 'Reports', path: '/reports', icon: FileSpreadsheet },
           { label: 'User Directory', path: '/admin/users', icon: Users },
           { label: 'Buildings', path: '/admin/buildings', icon: BuildingIcon },
           { label: 'Rooms', path: '/admin/rooms', icon: DoorOpen },
@@ -336,7 +348,7 @@ export const AppLayout: React.FC = () => {
       )}
 
       {/* Main content area */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+      <div className="min-w-0 flex-1 lg:ml-64 flex flex-col min-h-screen">
         {/* Top header */}
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between">
@@ -407,7 +419,7 @@ export const AppLayout: React.FC = () => {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 p-4 sm:p-5 lg:p-6">
           <Outlet />
         </main>
 

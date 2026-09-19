@@ -55,7 +55,7 @@ export const SupervisorManagePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Dispatch & Triage</h1>
@@ -65,14 +65,14 @@ export const SupervisorManagePage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+      <div className="flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
         {tabData.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-3.5 py-2 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-xl transition-all flex items-center gap-2 ${
               activeTab === tab.key
-                ? 'bg-sky-500 text-white shadow-sm'
+                ? 'bg-indigo-500 text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -96,19 +96,19 @@ export const SupervisorManagePage: React.FC = () => {
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-                <th className="py-3 px-4">Report #</th>
-                <th className="py-3 px-4">Concern</th>
-                <th className="py-3 px-4">Location</th>
-                <th className="py-3 px-4">Priority</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Assigned To</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-2.5 px-3">Report #</th>
+                <th className="py-2.5 px-3">Concern</th>
+                <th className="py-2.5 px-3">Location</th>
+                <th className="py-2.5 px-3">Priority</th>
+                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3">Assigned To</th>
+                <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 text-sm">
+                    <td colSpan={7} className="py-8 text-center text-slate-400 text-sm">
                     <AlertCircle className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                     No concerns in this queue right now.
                   </td>
@@ -116,29 +116,29 @@ export const SupervisorManagePage: React.FC = () => {
               ) : (
                 filtered.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className="py-2.5 px-3 whitespace-nowrap">
                       <span className="text-xs font-semibold text-slate-600">#{item.reportNumber}</span>
                     </td>
-                    <td className="py-3 px-4 max-w-xs">
+                    <td className="py-2.5 px-3 max-w-xs">
                       <Link to={`/concerns/${item.id}`} className="font-medium text-slate-800 hover:text-sky-600 line-clamp-1 transition-colors">
                         {item.title}
                       </Link>
                       <span className="text-[11px] text-slate-400 line-clamp-1">{item.description}</span>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className="py-2.5 px-3 whitespace-nowrap">
                       <div className="font-medium text-slate-700">{item.roomName}</div>
                       <div className="text-[11px] text-slate-400">{item.buildingName}</div>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap"><PriorityBadge priority={item.priority} size="sm" /></td>
-                    <td className="py-3 px-4 whitespace-nowrap"><StatusBadge status={item.status} size="sm" /></td>
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    <td className="py-2.5 px-3 whitespace-nowrap"><PriorityBadge priority={item.priority} size="sm" /></td>
+                    <td className="py-2.5 px-3 whitespace-nowrap"><StatusBadge status={item.status} size="sm" /></td>
+                    <td className="py-2.5 px-3 whitespace-nowrap">
                       {item.assignedPersonnelName ? (
                         <span className="text-slate-700 font-medium">{item.assignedPersonnelName}</span>
                       ) : (
                         <span className="text-amber-500 italic text-xs font-medium">Unassigned</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
                         {item.status === 'COMPLETED' ? (
                           <Link
@@ -150,7 +150,7 @@ export const SupervisorManagePage: React.FC = () => {
                         ) : (
                           <button
                             onClick={() => handleOpenAssign(item)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-sky-500 hover:bg-sky-600 text-white transition-colors"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors"
                           >
                             <UserCheck className="w-3 h-3" /> {item.assignedPersonnelId ? 'Reassign' : 'Assign'}
                           </button>
@@ -190,7 +190,7 @@ export const SupervisorManagePage: React.FC = () => {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setSelectedConcern(null)} className="px-4 py-2 text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Cancel</button>
-              <button type="submit" className="px-4 py-2 text-sm font-semibold rounded-xl bg-sky-500 hover:bg-sky-600 text-white transition-colors">Confirm Dispatch</button>
+              <button type="submit" className="px-4 py-2 text-sm font-semibold rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-colors">Confirm Dispatch</button>
             </div>
           </form>
         </Modal>
