@@ -108,7 +108,7 @@ export const ConcernListPage: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by report #, keyword, room, or reporter…"
-              className="input-base w-full pl-10 pr-4"
+              className="search-input w-full"
               id="concerns-search"
             />
             {searchQuery && (

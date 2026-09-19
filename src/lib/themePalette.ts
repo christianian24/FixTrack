@@ -1,0 +1,40 @@
+export const themePalette = {
+  critical: '#FF2727',
+  criticalSoft: '#FEE2E2',
+  warning: '#FFB020',
+  warningSoft: '#FEF3C7',
+  info: '#3C82F6',
+  infoSoft: '#DBEAFE',
+  success: '#20C86A',
+  successSoft: '#DCFCE7',
+  purple: '#8B5CF6',
+  purpleSoft: '#EDE9FE',
+  pink: '#F14A8B',
+  pinkSoft: '#FCE7F3',
+  neutral: '#94A3B8',
+  neutralSoft: '#F1F5F9',
+  darkShell: '#0F172A',
+  darkSurface: '#111827',
+  darkSurfaceAlt: '#1E293B',
+  lightSurface: '#FFFFFF',
+  lightSurfaceAlt: '#F8FAFC',
+  text: '#0F172A',
+  textSecondary: '#475569',
+  textMuted: '#64748B',
+  border: '#E2E8F0',
+  borderStrong: '#CBD5E1',
+  shadow: 'rgba(15, 23, 42, 0.12)',
+  chart: {
+    info: '#3C82F6',
+    success: '#20C86A',
+    purple: '#8B5CF6',
+    amber: '#FFB020',
+    rose: '#F14A8B',
+    neutral: '#94A3B8',
+    critical: '#FF2727',
+  },
+} as const;
+
+export const darkThemePalette = themePalette;
+
+export default themePalette;

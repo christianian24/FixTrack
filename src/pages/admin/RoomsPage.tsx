@@ -119,7 +119,7 @@ export const RoomsPage: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search room name, code, or building..."
-            className="input-base pl-9 text-sm"
+            className="search-input text-sm"
           />
         </div>
 
