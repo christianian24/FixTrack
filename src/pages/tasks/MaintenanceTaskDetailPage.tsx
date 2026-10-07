@@ -7,6 +7,7 @@ import { PhotoGallery } from '../../components/common/PhotoGallery';
 import { PhotoUploadZone } from '../../components/forms/PhotoUploadZone';
 import { TimelineView } from '../../components/concerns/TimelineView';
 import { Modal } from '../../components/common/Modal';
+import { formatBuildingLabel, formatConcernRoom } from '../../lib/locationFormatting';
 import { ArrowLeft, Wrench, CheckCircle, Package, PlusCircle } from 'lucide-react';
 
 const MetaChip: React.FC<{ label: string; value: string }> = ({ label, value }) => (
@@ -170,7 +171,8 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <MetaChip label="Location"    value={`${task.buildingName} · ${task.roomName}`} />
+              <MetaChip label="Building" value={formatBuildingLabel(task.buildingName, task.buildingCode)} />
+              <MetaChip label="Room / Location" value={formatConcernRoom(task)} />
               <MetaChip label="Reported By" value={`${task.reporterName} (${task.reporterType})`} />
               <MetaChip label="Target Date" value={task.scheduledDate || 'Standard SLA'} />
             </div>

@@ -80,6 +80,7 @@ async def test_failed_assignment_creates_no_notification(
             "title": "Broken fixture in notification room",
             "description": "The fixture is broken and needs maintenance attention.",
             "category_id": "cat_notification",
+            "building_id": "bld_notification",
             "room_id": "rm_notification",
             "is_safety_hazard": False,
             "affects_many_people": False,

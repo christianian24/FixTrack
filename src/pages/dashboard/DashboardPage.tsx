@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
+import { formatConcernLocation } from '../../lib/locationFormatting';
 import { StatCard } from '../../components/common/StatCard';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import {
@@ -176,7 +177,7 @@ export const DashboardPage: React.FC = () => {
                   <div className={`w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0 ${STATUS_STEPS[Math.max(0, latestStepIndex)]?.color ?? 'bg-slate-300'}`} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-slate-800 truncate">{latestConcern.title}</p>
-                    <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />{latestConcern.buildingName} · {latestConcern.roomName}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />{formatConcernLocation(latestConcern)}</p>
                     {latestConcern.repairNotes && (<p className="text-xs text-slate-500 mt-2 italic border-l-2 border-sky-200 pl-2 line-clamp-2">"{latestConcern.repairNotes}"</p>)}
                   </div>
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -256,7 +257,7 @@ export const DashboardPage: React.FC = () => {
             ) : (
               <div className="divide-y divide-slate-100">
                 {myConcerns.slice(0, 5).map(c => (
-                  <ConcernRow key={c.id} to={`/concerns/${c.id}`} reportNumber={c.reportNumber} location={`${c.buildingName} · ${c.roomName}`} title={c.title} priority={c.priority} status={c.status} />
+                  <ConcernRow key={c.id} to={`/concerns/${c.id}`} reportNumber={c.reportNumber} location={formatConcernLocation(c)} title={c.title} priority={c.priority} status={c.status} />
                 ))}
               </div>
             )}
@@ -323,7 +324,7 @@ export const DashboardPage: React.FC = () => {
                 {activeTasks.map(task => (
                   <div key={task.id} className={`flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors ${task.priority === 'CRITICAL' ? 'bg-rose-50 border-rose-100' : task.priority === 'HIGH' ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
                     <div className="min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-2"><span className="text-xs font-semibold text-slate-500">#{task.reportNumber}</span><span className="text-xs text-slate-400">{task.buildingName} · {task.roomName}</span></div>
+                      <div className="flex items-center gap-2"><span className="text-xs font-semibold text-slate-500">#{task.reportNumber}</span><span className="text-xs text-slate-400">{formatConcernLocation(task)}</span></div>
                       <p className="text-sm font-medium text-slate-800 truncate">{task.title}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -405,7 +406,7 @@ export const DashboardPage: React.FC = () => {
                     <div className="min-w-0 space-y-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-slate-500">#{task.reportNumber}</span>
-                        <span className="text-xs text-slate-400 flex items-center gap-0.5"><MapPin className="w-3 h-3" />{task.buildingName} · {task.roomName}</span>
+                        <span className="text-xs text-slate-400 flex items-center gap-0.5"><MapPin className="w-3 h-3" />{formatConcernLocation(task)}</span>
                         {task.scheduledDate && (<span className="text-[10px] text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full flex items-center gap-1"><CalendarDays className="w-3 h-3" /> {task.scheduledDate}</span>)}
                       </div>
                       <p className="text-sm font-medium text-slate-800 truncate">{task.title}</p>
@@ -515,7 +516,7 @@ export const DashboardPage: React.FC = () => {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-slate-600">#{item.reportNumber}</span>
-                        <span className="text-xs text-slate-400">{item.buildingName} · {item.roomName}</span>
+                        <span className="text-xs text-slate-400">{formatConcernLocation(item)}</span>
                       </div>
                       <p className="text-sm font-medium text-slate-800 truncate mt-0.5">{item.title}</p>
                     </div>
@@ -766,7 +767,7 @@ export const DashboardPage: React.FC = () => {
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-slate-500">#{c.reportNumber}</span>
-                      <span className="text-xs text-slate-400 flex items-center gap-0.5"><MapPin className="w-3 h-3" />{c.buildingName} · {c.roomName}</span>
+                      <span className="text-xs text-slate-400 flex items-center gap-0.5"><MapPin className="w-3 h-3" />{formatConcernLocation(c)}</span>
                     </div>
                     <p className="break-words text-sm font-medium leading-5 text-slate-800">{c.title}</p>
                   </div>

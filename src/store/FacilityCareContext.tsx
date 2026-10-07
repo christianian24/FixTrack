@@ -158,7 +158,9 @@ const mapConcern = (
     (currentUser?.id === item.assigned_to_id ? currentUser : undefined);
   const room = rooms.find((value) => value.id === item.room_id);
   const category = categories.find((value) => value.id === item.category_id);
-  const building = buildings.find((value) => value.id === room?.buildingId);
+  const building = buildings.find(
+    (value) => value.id === (item.building_id ?? room?.buildingId),
+  );
   const photos = item.photos ?? [];
 
   return {
@@ -172,10 +174,13 @@ const mapConcern = (
   reporterType: reporter?.userType ?? 'STUDENT',
   categoryId: item.category_id ?? '',
   categoryName: category?.name ?? 'Unknown Category',
-  buildingId: building?.id ?? '',
-  buildingName: building?.name ?? 'Unknown Building',
-  roomId: item.room_id ?? '',
-  roomName: room?.name ?? 'Unknown Room',
+  buildingId: item.building_id ?? building?.id ?? room?.buildingId ?? '',
+  buildingName: item.building_name ?? building?.name ?? 'Unknown Building',
+  buildingCode: item.building_code ?? building?.code,
+  roomId: item.room_id,
+  roomName: item.other_location ?? item.room_name ?? room?.name ?? 'Unknown Room',
+  roomFloor: item.room_floor ?? room?.floor ?? null,
+  otherLocation: item.other_location ?? undefined,
   priority: (item.priority as ConcernPriority) ?? 'MEDIUM',
   priorityReason: [],
   status: item.status === 'SUBMITTED' ? 'PENDING' : item.status as ConcernStatus,
@@ -428,7 +433,9 @@ export const FacilityCareProvider: React.FC<{ children: React.ReactNode }> = ({ 
       title: data.title,
       description: data.description,
       category_id: data.categoryId || undefined,
-      room_id: data.roomId || undefined,
+      building_id: data.buildingId,
+      room_id: data.roomId,
+      other_location: data.otherLocation?.trim() || null,
       priority: data.priority,
       is_safety_hazard: data.safetyRisk !== 'NONE',
       affects_many_people: data.affectedUsers !== 'INDIVIDUAL',

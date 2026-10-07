@@ -27,6 +27,9 @@ class Building(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     rooms: Mapped[list["Room"]] = relationship("Room", back_populates="building")
+    concerns: Mapped[list["Concern"]] = relationship(  # noqa: F821
+        "Concern", back_populates="building", foreign_keys="Concern.building_id"
+    )
 
 
 class Room(Base):

@@ -78,6 +78,13 @@ class Concern(Base):
     room_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True
     )
+    building_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("buildings.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    other_location: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Workflow timestamps
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -105,7 +112,12 @@ class Concern(Base):
     category: Mapped["FacilityCategory | None"] = relationship(  # noqa: F821
         "FacilityCategory", back_populates="concerns"
     )
-    room: Mapped["Room | None"] = relationship("Room", back_populates="concerns")  # noqa: F821
+    room: Mapped["Room | None"] = relationship(
+        "Room", back_populates="concerns", lazy="joined"
+    )  # noqa: F821
+    building: Mapped["Building | None"] = relationship(
+        "Building", back_populates="concerns", lazy="joined"
+    )  # noqa: F821
     photos: Mapped[list["ConcernPhoto"]] = relationship(
         "ConcernPhoto", back_populates="concern", cascade="all, delete-orphan",
         lazy="selectin",

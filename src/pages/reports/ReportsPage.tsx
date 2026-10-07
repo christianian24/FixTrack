@@ -4,6 +4,7 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { exportConcernsToCSV } from '../../services/exportService';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { formatDateOnly } from '../../lib/formatting';
+import { formatBuildingLabel, formatConcernRoom } from '../../lib/locationFormatting';
 import {
   FileSpreadsheet,
   Download,
@@ -237,7 +238,7 @@ export const ReportsPage: React.FC = () => {
                       {c.title}
                     </td>
                     <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} text-slate-600 whitespace-nowrap`}>
-                      {c.roomName} <span className="text-slate-400">({c.buildingName})</span>
+                      {formatConcernRoom(c)} <span className="text-slate-400">({formatBuildingLabel(c.buildingName, c.buildingCode)})</span>
                     </td>
                     <td className={`${isSupervisor ? 'py-2.5 px-3' : 'py-3 px-4'} text-slate-600 whitespace-nowrap`}>
                       {c.categoryName}

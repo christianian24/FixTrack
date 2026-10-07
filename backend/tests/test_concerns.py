@@ -31,7 +31,9 @@ CONCERN_PAYLOAD = {
     "title": "Broken light fixture in Test Room",
     "description": "The main light in Test Room 101 is broken and flickering badly.",
     "category_id": "cat_test",
+    "building_id": "bld_test",
     "room_id": "rm_test",
+    "other_location": None,
     "is_safety_hazard": False,
     "affects_many_people": True,
 }
@@ -51,6 +53,235 @@ async def test_student_can_submit_concern(
     data = resp.json()
     assert data["status"] == "SUBMITTED"
     assert data["tracking_number"].startswith("FC-")
+    assert data["building_id"] == "bld_test"
+    assert data["room_id"] == "rm_test"
+    assert data["other_location"] is None
+    assert data["building_name"] == "Test Building"
+    assert data["building_code"] == "TB"
+    assert data["room_name"] == "Test Room 101"
+    assert data["room_floor"] == 1
+    list_response = await client.get(
+        "/api/v1/concerns/",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["building_name"] == "Test Building"
+
+
+async def test_other_location_concern_can_be_submitted(
+    client: AsyncClient, db_session: AsyncSession, student_token: str
+):
+    await _seed_facility(db_session)
+    payload = {
+        **CONCERN_PAYLOAD,
+        "room_id": None,
+        "other_location": "  Hallway beside Conference Room  ",
+    }
+
+    response = await client.post(
+        "/api/v1/concerns/",
+        json=payload,
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+
+    assert response.status_code == 201, response.text
+    data = response.json()
+    assert data["building_id"] == "bld_test"
+    assert data["building_name"] == "Test Building"
+    assert data["building_code"] == "TB"
+    assert data["room_id"] is None
+    assert data["room_name"] is None
+    assert data["other_location"] == "Hallway beside Conference Room"
+
+
+async def test_other_location_without_text_is_rejected(
+    client: AsyncClient, db_session: AsyncSession, student_token: str
+):
+    await _seed_facility(db_session)
+    response = await client.post(
+        "/api/v1/concerns/",
+        json={**CONCERN_PAYLOAD, "room_id": None, "other_location": "  "},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert response.status_code == 422
+
+
+async def test_other_location_without_building_is_rejected(
+    client: AsyncClient, db_session: AsyncSession, student_token: str
+):
+    await _seed_facility(db_session)
+    payload = {
+        key: value for key, value in CONCERN_PAYLOAD.items()
+        if key != "building_id"
+    }
+    payload.update(room_id=None, other_location="Hallway beside Conference Room")
+    response = await client.post(
+        "/api/v1/concerns/",
+        json=payload,
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert response.status_code == 422
+
+
+async def test_room_from_different_building_is_rejected(
+    client: AsyncClient, db_session: AsyncSession, student_token: str
+):
+    await _seed_facility(db_session)
+    db_session.add_all([
+        Building(id="bld_other", name="Other Building", code="OB", floors=1),
+        Room(id="rm_other", building_id="bld_other", name="Other Room", floor=1),
+    ])
+    await db_session.commit()
+    response = await client.post(
+        "/api/v1/concerns/",
+        json={**CONCERN_PAYLOAD, "room_id": "rm_other"},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert response.status_code == 422
+
+
+async def test_unknown_room_is_rejected(
+    client: AsyncClient, db_session: AsyncSession, student_token: str
+):
+    await _seed_facility(db_session)
+    response = await client.post(
+        "/api/v1/concerns/",
+        json={**CONCERN_PAYLOAD, "room_id": "missing-room"},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert response.status_code == 422
+
+
+async def test_unknown_building_is_rejected(
+    client: AsyncClient, db_session: AsyncSession, student_token: str
+):
+    await _seed_facility(db_session)
+    response = await client.post(
+        "/api/v1/concerns/",
+        json={**CONCERN_PAYLOAD, "building_id": "missing-building"},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert response.status_code == 422
+
+
+async def test_normal_room_rejects_other_location_text(
+    client: AsyncClient, db_session: AsyncSession, student_token: str
+):
+    await _seed_facility(db_session)
+    response = await client.post(
+        "/api/v1/concerns/",
+        json={**CONCERN_PAYLOAD, "other_location": "Near the window"},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert response.status_code == 422
+
+
+async def test_room_only_update_preserves_normal_location(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    student_token: str,
+    supervisor_token: str,
+):
+    await _seed_facility(db_session)
+    db_session.add(
+        Room(
+            id="rm_test_2",
+            building_id="bld_test",
+            name="Test Room 102",
+            floor=1,
+            room_type="Classroom",
+        )
+    )
+    await db_session.commit()
+    create_response = await client.post(
+        "/api/v1/concerns/",
+        json=CONCERN_PAYLOAD,
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    concern_id = create_response.json()["id"]
+
+    response = await client.patch(
+        f"/api/v1/concerns/{concern_id}",
+        json={"room_id": "rm_test_2"},
+        headers={"Authorization": f"Bearer {supervisor_token}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["room_id"] == "rm_test_2"
+    assert response.json()["building_id"] == "bld_test"
+    assert response.json()["other_location"] is None
+
+
+async def test_reporter_can_view_own_other_location_concern(
+    client: AsyncClient, db_session: AsyncSession, student_token: str
+):
+    await _seed_facility(db_session)
+    create_response = await client.post(
+        "/api/v1/concerns/",
+        json={**CONCERN_PAYLOAD, "room_id": None, "other_location": "North stairwell"},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert create_response.status_code == 201
+
+    response = await client.get(
+        f"/api/v1/concerns/{create_response.json()['id']}",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["other_location"] == "North stairwell"
+
+
+async def test_assigned_maintenance_personnel_can_view_other_location_concern(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    student_token: str,
+    supervisor_token: str,
+    tech_token: str,
+    tech_user: User,
+):
+    await _seed_facility(db_session)
+    create_response = await client.post(
+        "/api/v1/concerns/",
+        json={**CONCERN_PAYLOAD, "room_id": None, "other_location": "North stairwell"},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    concern_id = create_response.json()["id"]
+    assign_response = await client.post(
+        f"/api/v1/concerns/{concern_id}/assign",
+        json={"assigned_to_id": tech_user.id},
+        headers={"Authorization": f"Bearer {supervisor_token}"},
+    )
+    assert assign_response.status_code == 200
+
+    response = await client.get(
+        f"/api/v1/concerns/{concern_id}",
+        headers={"Authorization": f"Bearer {tech_token}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["other_location"] == "North stairwell"
+
+
+async def test_supervisor_and_administrator_can_view_other_location_concern(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    student_token: str,
+    supervisor_token: str,
+    admin_token: str,
+):
+    await _seed_facility(db_session)
+    create_response = await client.post(
+        "/api/v1/concerns/",
+        json={**CONCERN_PAYLOAD, "room_id": None, "other_location": "North stairwell"},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    concern_id = create_response.json()["id"]
+
+    for token in (supervisor_token, admin_token):
+        response = await client.get(
+            f"/api/v1/concerns/{concern_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        assert response.json()["other_location"] == "North stairwell"
 
 
 async def test_full_concern_lifecycle(

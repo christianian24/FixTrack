@@ -4,6 +4,7 @@ import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { EmptyState } from '../../components/common/EmptyState';
+import { formatBuildingLabel, formatConcernRoom } from '../../lib/locationFormatting';
 import { CheckSquare, Search, ArrowRight, ChevronDown, CalendarDays, Building2, MapPin, LayoutGrid, List } from 'lucide-react';
 
 type SortOption = 'newest' | 'oldest' | 'priority' | 'status';
@@ -57,7 +58,7 @@ export const MaintenanceTasksPage: React.FC = () => {
         task.reportNumber,
         task.title,
         task.description,
-        task.roomName,
+        formatConcernRoom(task),
         task.buildingName,
         task.reporterName,
         task.categoryName,
@@ -241,7 +242,10 @@ export const MaintenanceTasksPage: React.FC = () => {
                       <div className="font-medium text-slate-800">{task.title}</div>
                       <div className="text-xs text-slate-500 line-clamp-1">{task.description}</div>
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600">{task.roomName}</td>
+                    <td className="py-2.5 px-3 text-slate-600">
+                      <div>{formatConcernRoom(task)}</div>
+                      <div className="text-[11px] text-slate-400">{formatBuildingLabel(task.buildingName, task.buildingCode)}</div>
+                    </td>
                     <td className="py-2.5 px-3"><PriorityBadge priority={task.priority} size="sm" /></td>
                     <td className="py-2.5 px-3"><StatusBadge status={task.status} size="sm" /></td>
                     <td className="py-2.5 px-3 text-slate-600">{formatDate(task.scheduledDate || task.createdAt)}</td>
@@ -263,9 +267,10 @@ export const MaintenanceTasksPage: React.FC = () => {
             >
               <div className={isTechnician ? 'space-y-2' : 'space-y-2.5'}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-500">#{task.reportNumber}</span>
-                    <span className="text-xs text-slate-400">{task.roomName}</span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-slate-500">#{task.reportNumber}</div>
+                    <div className="text-xs text-slate-400 truncate">{formatConcernRoom(task)}</div>
+                    <div className="text-[11px] text-slate-400 truncate">{formatBuildingLabel(task.buildingName, task.buildingCode)}</div>
                   </div>
                   <PriorityBadge priority={task.priority} size="sm" />
                 </div>

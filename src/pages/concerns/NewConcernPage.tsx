@@ -20,6 +20,8 @@ import {
   CheckCircle,
 } from 'lucide-react';
 
+const OTHER_LOCATION_OPTION = '__OTHER_LOCATION__';
+
 // Step header helper
 const StepHeader: React.FC<{ step: number; title: string; subtitle?: string }> = ({ step, title, subtitle }) => (
   <div className="flex items-center gap-3 mb-5">
@@ -62,6 +64,12 @@ const getSubmitErrors = (error: unknown): Record<string, string> => {
       fieldErrors.description = 'Please provide at least 10 characters describing the concern.';
     } else if (field === 'title' && item.type === 'string_too_short') {
       fieldErrors.title = 'Please provide a longer concern title.';
+    } else if (field === 'other_location') {
+      fieldErrors.otherLocation = 'Please enter a specific location.';
+    } else if (field === 'building_id') {
+      fieldErrors.buildingId = 'Please select a valid building.';
+    } else if (field === 'room_id') {
+      fieldErrors.roomId = 'Please select a valid room for this building.';
     } else if (field === 'title' || field === 'description') {
       fieldErrors[field] = 'Please check this field and correct the invalid information.';
     }
@@ -83,10 +91,10 @@ export const NewConcernPage: React.FC = () => {
   const [categoryId, setCategoryId] = useState(categories[0]?.id || '');
   const [buildingId, setBuildingId] = useState(buildings[0]?.id || '');
   const availableRooms = useMemo(() => rooms.filter(r => r.buildingId === buildingId && r.status === 'ACTIVE'), [rooms, buildingId]);
-  const [roomId, setRoomId] = useState(() => {
-    const firstActive = rooms.find(r => r.buildingId === (buildings[0]?.id || '') && r.status === 'ACTIVE');
-    return firstActive?.id || '';
-  });
+  const [roomId, setRoomId] = useState('');
+  const [isOtherLocation, setIsOtherLocation] = useState(false);
+  const [otherLocation, setOtherLocation] = useState('');
+  const selectedRoomId = roomId || null;
   const [safetyRisk, setSafetyRisk] = useState<SafetyRisk>('NONE');
   const [affectedUsers, setAffectedUsers] = useState<AffectedUsers>('CLASS');
   const [photos, setPhotos] = useState<string[]>([]);
@@ -107,22 +115,25 @@ export const NewConcernPage: React.FC = () => {
   }, [buildings, buildingId]);
 
   useEffect(() => {
-    const firstActiveRoom = rooms.find((room) => room.buildingId === buildingId && room.status === 'ACTIVE');
+    if (isOtherLocation) return;
     if (!rooms.some((room) => room.id === roomId && room.buildingId === buildingId)) {
-      setRoomId(firstActiveRoom?.id || '');
+      setRoomId('');
     }
-  }, [rooms, buildingId, roomId]);
+  }, [rooms, buildingId, roomId, isOtherLocation]);
 
   const selectedCategory = useMemo(() => categories.find(c => c.id === categoryId), [categories, categoryId]);
   const selectedBuilding  = useMemo(() => buildings.find(b => b.id === buildingId), [buildings, buildingId]);
-  const selectedRoom      = useMemo(() => rooms.find(r => r.id === roomId), [rooms, roomId]);
+  const selectedRoom      = useMemo(() => rooms.find(r => r.id === selectedRoomId), [rooms, selectedRoomId]);
 
   const duplicateResult = useMemo(() => {
-    if (duplicateIgnored || !roomId || !title.trim()) return { isDuplicate: false, score: 0 };
-    return checkForDuplicateConcern(concerns, roomId, categoryId, title);
-  }, [concerns, roomId, categoryId, title, duplicateIgnored]);
+    if (duplicateIgnored || !selectedRoomId || !title.trim()) return { isDuplicate: false, score: 0 };
+    return checkForDuplicateConcern(concerns, selectedRoomId, categoryId, title);
+  }, [concerns, selectedRoomId, categoryId, title, duplicateIgnored]);
 
-  const existingDupCount = useMemo(() => concerns.filter(c => c.roomId === roomId && c.status !== 'CLOSED').length, [concerns, roomId]);
+  const existingDupCount = useMemo(
+    () => selectedRoomId ? concerns.filter(c => c.roomId === selectedRoomId && c.status !== 'CLOSED').length : 0,
+    [concerns, selectedRoomId],
+  );
 
   const priorityResult = useMemo(() => calculateRecommendedPriority(
     safetyRisk, affectedUsers, categoryId, selectedCategory?.name || '', existingDupCount,
@@ -136,7 +147,11 @@ export const NewConcernPage: React.FC = () => {
     if (!description.trim()) errors.description = 'Please provide a detailed description.';
     if (!categoryId) errors.categoryId = 'Please select a category.';
     if (!buildingId) errors.buildingId = 'Please select a building.';
-    if (!roomId) errors.roomId = 'Please select a room.';
+    if (isOtherLocation) {
+      if (!otherLocation.trim()) errors.otherLocation = 'Please enter a specific location.';
+    } else if (!selectedRoomId) {
+      errors.roomId = 'Please select a room.';
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -160,8 +175,13 @@ export const NewConcernPage: React.FC = () => {
       categoryName: selectedCategory?.name || 'General Facility',
       buildingId,
       buildingName: selectedBuilding?.name || 'Campus Building',
-      roomId,
-      roomName: selectedRoom?.name || 'Campus Room',
+      buildingCode: selectedBuilding?.code,
+      roomId: selectedRoomId,
+      roomName: isOtherLocation
+        ? otherLocation.trim()
+        : selectedRoom?.name || 'Campus Room',
+      roomFloor: selectedRoom?.floor ?? null,
+      otherLocation: isOtherLocation ? otherLocation.trim() : undefined,
       priority: activePriority,
       priorityReason: priorityResult.reasons,
       status: 'PENDING',
@@ -265,8 +285,9 @@ export const NewConcernPage: React.FC = () => {
                   const newBld = e.target.value;
                   setBuildingId(newBld);
                   setDuplicateIgnored(false);
-                  const newRooms = rooms.filter(r => r.buildingId === newBld && r.status === 'ACTIVE');
-                  setRoomId(newRooms.length > 0 ? newRooms[0].id : '');
+                  setOtherLocation('');
+                  setRoomId('');
+                  setIsOtherLocation(false);
                 }}
                 className="select-base"
                 id="concern-building"
@@ -278,17 +299,48 @@ export const NewConcernPage: React.FC = () => {
             <div>
               <FieldLabel label="Room / Location" required icon={<DoorOpen className="w-3.5 h-3.5 text-sky-500" />} />
               <select
-                value={roomId}
-                onChange={(e) => { setRoomId(e.target.value); setDuplicateIgnored(false); }}
+                value={isOtherLocation ? OTHER_LOCATION_OPTION : roomId}
+                disabled={!buildingId}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setIsOtherLocation(value === OTHER_LOCATION_OPTION);
+                  setRoomId(value === OTHER_LOCATION_OPTION ? '' : value);
+                  setDuplicateIgnored(false);
+                  if (value !== OTHER_LOCATION_OPTION) setOtherLocation('');
+                }}
                 className="select-base"
                 id="concern-room"
               >
-                {availableRooms.map(rm => <option key={rm.id} value={rm.id}>{rm.name} (Floor {rm.floor})</option>)}
+                <option value="">Select room/location</option>
+                {buildings.some((building) => building.id === buildingId) && (
+                  <>
+                    {availableRooms.map(rm => <option key={rm.id} value={rm.id}>{rm.name} (Floor {rm.floor})</option>)}
+                    <option value={OTHER_LOCATION_OPTION}>Others</option>
+                  </>
+                )}
               </select>
-              {availableRooms.length === 0 && (
+              {!buildingId && (
+                <p className="text-xs text-slate-400 mt-1">Select a building first.</p>
+              )}
+              {buildingId && availableRooms.length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">No active rooms found in this building.</p>
               )}
             </div>
+            {isOtherLocation && (
+              <div className="sm:col-span-3">
+                <FieldLabel label="Other Location" required />
+                <input
+                  type="text"
+                  value={otherLocation}
+                  onChange={(e) => setOtherLocation(e.target.value)}
+                  placeholder="Enter the specific location"
+                  className={`input-base ${formErrors.otherLocation ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : ''}`}
+                  id="concern-other-location"
+                  maxLength={500}
+                />
+                {formErrors.otherLocation && <p className="text-xs text-rose-500 mt-1">{formErrors.otherLocation}</p>}
+              </div>
+            )}
           </div>
         </div>
 

@@ -48,8 +48,11 @@ export interface Concern {
   categoryName: string;
   buildingId: string;
   buildingName: string;
-  roomId: string;
+  buildingCode?: string;
+  roomId: string | null;
   roomName: string;
+  roomFloor?: number | null;
+  otherLocation?: string;
 
   priority: ConcernPriority;
   priorityReason: string[];

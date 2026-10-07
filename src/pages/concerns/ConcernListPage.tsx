@@ -5,6 +5,7 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { formatRelativeTime } from '../../lib/formatting';
+import { formatBuildingLabel, formatConcernRoom } from '../../lib/locationFormatting';
 import { ConcernPriority } from '../../types/concern';
 import {
   Search,
@@ -39,7 +40,7 @@ export const ConcernListPage: React.FC = () => {
           c.reportNumber.toLowerCase().includes(q) ||
           c.title.toLowerCase().includes(q) ||
           c.description.toLowerCase().includes(q) ||
-          c.roomName.toLowerCase().includes(q) ||
+          formatConcernRoom(c).toLowerCase().includes(q) ||
           c.buildingName.toLowerCase().includes(q) ||
           c.reporterName.toLowerCase().includes(q),
       );
@@ -254,8 +255,8 @@ export const ConcernListPage: React.FC = () => {
                       </span>
                     </td>
                     <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap' : 'py-3 px-4 whitespace-nowrap'}>
-                      <div className="font-medium text-slate-700">{concern.roomName}</div>
-                      <div className="text-[11px] text-slate-400">{concern.buildingName}</div>
+                      <div className="font-medium text-slate-700">{formatConcernRoom(concern)}</div>
+                      <div className="text-[11px] text-slate-400">{formatBuildingLabel(concern.buildingName, concern.buildingCode)}</div>
                     </td>
                     <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap text-slate-600' : 'py-3 px-4 whitespace-nowrap text-slate-600'}>{concern.categoryName}</td>
                     <td className={isCompactRole ? 'py-2.5 px-3 whitespace-nowrap' : 'py-3 px-4 whitespace-nowrap'}><PriorityBadge priority={concern.priority} size="sm" /></td>
@@ -311,7 +312,7 @@ export const ConcernListPage: React.FC = () => {
               <div className="pt-3 border-t border-slate-100 space-y-1.5 text-xs">
                 <div className="flex items-center justify-between text-slate-500">
                   <span>Location</span>
-                  <span className="text-slate-700 font-medium truncate max-w-[180px] text-right">{concern.roomName}</span>
+                  <span className="text-slate-700 font-medium truncate max-w-[180px] text-right">{formatConcernRoom(concern)}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-500">
                   <span>Priority</span>

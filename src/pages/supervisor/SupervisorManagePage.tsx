@@ -5,6 +5,7 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { Concern } from '../../types/concern';
+import { formatBuildingLabel, formatConcernRoom } from '../../lib/locationFormatting';
 import { ShieldCheck, UserCheck, ArrowRight, AlertCircle } from 'lucide-react';
 
 type Tab = 'UNASSIGNED' | 'ACTIVE' | 'VERIFY' | 'CRITICAL' | 'ALL';
@@ -126,8 +127,8 @@ export const SupervisorManagePage: React.FC = () => {
                       <span className="text-[11px] text-slate-400 line-clamp-1">{item.description}</span>
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap">
-                      <div className="font-medium text-slate-700">{item.roomName}</div>
-                      <div className="text-[11px] text-slate-400">{item.buildingName}</div>
+                      <div className="font-medium text-slate-700">{formatConcernRoom(item)}</div>
+                      <div className="text-[11px] text-slate-400">{formatBuildingLabel(item.buildingName, item.buildingCode)}</div>
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap"><PriorityBadge priority={item.priority} size="sm" /></td>
                     <td className="py-2.5 px-3 whitespace-nowrap"><StatusBadge status={item.status} size="sm" /></td>

@@ -33,14 +33,16 @@ async def export_concerns_csv(
     writer.writerow([
         "Tracking Number", "Title", "Status", "Priority", "Priority Score",
         "Safety Hazard", "Affects Many", "Recurring",
-        "Reporter ID", "Assigned To ID", "Category ID", "Room ID",
+        "Reporter ID", "Assigned To ID", "Category ID", "Building ID",
+        "Room ID", "Other Location",
         "Submitted At", "Completed At", "Verified At",
     ])
     for c in concerns:
         writer.writerow([
             c.tracking_number, c.title, c.status, c.priority, c.priority_score,
             c.is_safety_hazard, c.affects_many_people, c.is_recurring,
-            c.reporter_id, c.assigned_to_id, c.category_id, c.room_id,
+            c.reporter_id, c.assigned_to_id, c.category_id, c.building_id,
+            c.room_id, c.other_location,
             c.submitted_at, c.completed_at, c.verified_at,
         ])
 

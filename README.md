@@ -101,8 +101,11 @@ SQLite tables are created automatically when the application starts. Seed the lo
 
 ```bash
 python -m app.db.seed
+python -m alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
+
+Apply Alembic migrations after seeding and before starting the API, including when upgrading an existing SQLite database. The migration records the new concern location fields and preserves building IDs for existing room-based concerns.
 
 The backend provides:
 

@@ -2,9 +2,11 @@ import { apiClient } from './client';
 
 export interface ConcernCreateRequest {
   title: string;
-  description?: string;
+  description: string;
   category_id?: string;
-  room_id?: string;
+  building_id: string;
+  room_id: string | null;
+  other_location: string | null;
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   is_safety_hazard: boolean;
   affects_many_people: boolean;
@@ -26,6 +28,12 @@ export interface ConcernRead {
   assigned_to_id: string | null;
   category_id: string | null;
   room_id: string | null;
+  building_id: string | null;
+  other_location: string | null;
+  building_name: string | null;
+  building_code: string | null;
+  room_name: string | null;
+  room_floor: number | null;
   submitted_at: string;
   updated_at: string;
   resolution_notes?: string | null;

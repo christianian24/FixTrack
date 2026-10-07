@@ -12,6 +12,7 @@ from ...core.dependencies import get_current_user, require_roles
 from ...db.session import get_db
 from ...models.category import FacilityCategory
 from ...models.concern import Concern, ConcernPhoto, TimelineEvent
+from ...models.facility import Building, Room
 from ...models.user import User
 from ...schemas.concern import (
     ConcernAssign,
@@ -86,6 +87,43 @@ async def _add_event(
     db.add(event)
 
 
+async def _validate_location(
+    db: AsyncSession,
+    building_id: str | None,
+    room_id: str | None,
+    other_location: str | None,
+) -> None:
+    if not building_id:
+        raise HTTPException(status_code=422, detail="Building is required")
+
+    building_result = await db.execute(
+        select(Building).where(Building.id == building_id)
+    )
+    if building_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=422, detail="Building not found")
+
+    if room_id is not None:
+        room_result = await db.execute(select(Room).where(Room.id == room_id))
+        room = room_result.scalar_one_or_none()
+        if room is None:
+            raise HTTPException(status_code=422, detail="Room not found")
+        if room.building_id != building_id:
+            raise HTTPException(
+                status_code=422,
+                detail="Room does not belong to the selected building",
+            )
+        if other_location is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="Other location must be empty when a room is selected",
+            )
+    elif not other_location or not other_location.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Other location is required when no room is selected",
+        )
+
+
 # ── List ──────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[ConcernSummary], include_in_schema=False)
@@ -126,6 +164,10 @@ async def create_concern(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    await _validate_location(
+        db, payload.building_id, payload.room_id, payload.other_location
+    )
+
     # Priority engine
     cat_weight = 5
     if payload.category_id:
@@ -150,6 +192,8 @@ async def create_concern(
         description=payload.description,
         category_id=payload.category_id,
         room_id=payload.room_id,
+        building_id=payload.building_id,
+        other_location=payload.other_location,
         reporter_id=current_user.id,
         priority=priority_label,
         priority_score=priority_score,
@@ -242,7 +286,35 @@ async def update_concern(
     if not concern:
         raise HTTPException(status_code=404, detail="Concern not found")
 
-    updates = payload.model_dump(exclude_none=True)
+    location_fields = {"building_id", "room_id", "other_location"}
+    if payload.model_fields_set & location_fields:
+        updates = payload.model_dump(exclude_unset=True)
+        updates = {
+            field: value
+            for field, value in updates.items()
+            if value is not None or field in location_fields
+        }
+        next_room_id = updates.get("room_id", concern.room_id)
+        next_building_id = updates.get("building_id", concern.building_id)
+        next_other_location = updates.get("other_location", concern.other_location)
+
+        if "room_id" in updates and "building_id" not in updates and next_room_id:
+            room_result = await db.execute(select(Room).where(Room.id == next_room_id))
+            room = room_result.scalar_one_or_none()
+            if room is None:
+                raise HTTPException(status_code=422, detail="Room not found")
+            next_building_id = room.building_id
+            if "other_location" not in updates:
+                next_other_location = None
+
+        await _validate_location(
+            db, next_building_id, next_room_id, next_other_location
+        )
+        updates["room_id"] = next_room_id
+        updates["building_id"] = next_building_id
+        updates["other_location"] = next_other_location
+    else:
+        updates = payload.model_dump(exclude_none=True)
     old_priority = concern.priority
     for field, value in updates.items():
         setattr(concern, field, value)

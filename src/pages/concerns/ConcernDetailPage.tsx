@@ -7,6 +7,7 @@ import { PhotoGallery } from '../../components/common/PhotoGallery';
 import { PhotoUploadZone } from '../../components/forms/PhotoUploadZone';
 import { TimelineView } from '../../components/concerns/TimelineView';
 import { RoomRepairHistory } from '../../components/concerns/RoomRepairHistory';
+import { formatBuildingLabel, formatConcernRoom } from '../../lib/locationFormatting';
 import { Modal } from '../../components/common/Modal';
 import { ConcernPriority } from '../../types/concern';
 import {
@@ -236,8 +237,8 @@ export const ConcernDetailPage: React.FC = () => {
 
             {/* Metadata chips */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <MetaChip label="Building"    value={concern.buildingName} icon={<Building   className="w-3.5 h-3.5 text-sky-400" />} />
-              <MetaChip label="Room"        value={concern.roomName}     icon={<DoorOpen   className="w-3.5 h-3.5 text-sky-400" />} />
+              <MetaChip label="Building"    value={formatBuildingLabel(concern.buildingName, concern.buildingCode)} icon={<Building   className="w-3.5 h-3.5 text-sky-400" />} />
+              <MetaChip label="Room / Location" value={formatConcernRoom(concern)} icon={<DoorOpen   className="w-3.5 h-3.5 text-sky-400" />} />
               <MetaChip label="Category"    value={concern.categoryName} icon={<FolderTree className="w-3.5 h-3.5 text-sky-400" />} />
               <MetaChip label="Safety Risk" value={concern.safetyRisk}   icon={<AlertTriangle className="w-3.5 h-3.5 text-amber-400" />} />
             </div>
@@ -323,7 +324,9 @@ export const ConcernDetailPage: React.FC = () => {
         {/* Right col */}
         <div className="space-y-3">
           <TimelineView timeline={concern.timeline} currentStatus={concern.status} />
-          <RoomRepairHistory currentConcernId={concern.id} roomId={concern.roomId} roomName={concern.roomName} allConcerns={concerns} />
+          {concern.roomId && (
+            <RoomRepairHistory currentConcernId={concern.id} roomId={concern.roomId} roomName={formatConcernRoom(concern)} allConcerns={concerns} />
+          )}
         </div>
       </div>
 

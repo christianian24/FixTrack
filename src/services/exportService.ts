@@ -1,4 +1,5 @@
 import { Concern } from '../types/concern';
+import { formatBuildingLabel, formatConcernRoom } from '../lib/locationFormatting';
 
 export function exportConcernsToCSV(concerns: Concern[], filename: string = 'FacilityCare_Maintenance_Report.csv') {
   const headers = [
@@ -21,8 +22,8 @@ export function exportConcernsToCSV(concerns: Concern[], filename: string = 'Fac
     `"${c.reportNumber}"`,
     `"${c.title.replace(/"/g, '""')}"`,
     `"${c.categoryName}"`,
-    `"${c.buildingName}"`,
-    `"${c.roomName}"`,
+    `"${formatBuildingLabel(c.buildingName, c.buildingCode)}"`,
+    `"${formatConcernRoom(c)}"`,
     `"${c.priority}"`,
     `"${c.status}"`,
     `"${c.safetyRisk}"`,
