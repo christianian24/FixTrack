@@ -12,7 +12,9 @@ class Settings(BaseSettings):
     # ── App ─────────────────────────────────────────────────────────────────
     APP_NAME: str = "FixTrack"
     APP_VERSION: str = "1.0.0"
+    APP_ENV: str = "production"
     DEBUG: bool = False
+    FIXTRACK_DEMO_LOGIN_ENABLED: bool = False
 
     # ── Security ─────────────────────────────────────────────────────────────
     SECRET_KEY: str = "CHANGE_ME_IN_PRODUCTION_USE_openssl_rand_hex_32"

@@ -1,11 +1,16 @@
 import React, { useRef } from 'react';
 import { Upload, X, ImagePlus } from 'lucide-react';
+import { isImageFile } from '../../lib/formValidation';
 
 interface PhotoUploadZoneProps {
   photos: string[];
   onChange: (photos: string[]) => void;
   onFiles?: (files: File[]) => void;
   maxPhotos?: number;
+  inputId?: string;
+  inputInvalid?: boolean;
+  inputDescribedBy?: string;
+  onValidationError?: (error: string | null) => void;
 }
 
 export const PhotoUploadZone: React.FC<PhotoUploadZoneProps> = ({
@@ -13,15 +18,31 @@ export const PhotoUploadZone: React.FC<PhotoUploadZoneProps> = ({
   onChange,
   onFiles,
   maxPhotos = 4,
+  inputId = 'photo-upload-input',
+  inputInvalid = false,
+  inputDescribedBy,
+  onValidationError,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [validationError, setValidationError] = React.useState<string | null>(null);
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
-    const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    const imageFiles = Array.from(files).filter(isImageFile);
     const remaining = maxPhotos - photos.length;
     const selectedFiles = imageFiles.slice(0, remaining);
+    const error = imageFiles.length < files.length
+      ? 'Choose image files only.'
+      : imageFiles.length > remaining
+        ? `You can upload up to ${maxPhotos} photos.`
+        : null;
+    setValidationError(error);
+    if (imageFiles.length === 0) {
+      onValidationError?.(error);
+      return;
+    }
     onFiles?.(selectedFiles);
+    onValidationError?.(error);
 
     selectedFiles.forEach((file) => {
       const reader = new FileReader();
@@ -46,11 +67,20 @@ export const PhotoUploadZone: React.FC<PhotoUploadZoneProps> = ({
       {canAdd && (
         <div
           onClick={() => inputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              inputRef.current?.click();
+            }
+          }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
             handleFiles(e.dataTransfer.files);
           }}
+          role="button"
+          tabIndex={0}
+          aria-label="Choose or drag image files"
           className="flex flex-col items-center justify-center gap-3 py-10 rounded-2xl cursor-pointer transition-all border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-sky-50 hover:border-sky-300"
         >
           <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-sky-100">
@@ -64,13 +94,26 @@ export const PhotoUploadZone: React.FC<PhotoUploadZoneProps> = ({
           </div>
           <input
             ref={inputRef}
+            id={inputId}
             type="file"
             accept="image/*"
             multiple
             className="hidden"
+            aria-label="Photo evidence"
+            aria-invalid={inputInvalid || Boolean(validationError)}
+            aria-describedby={
+              [inputDescribedBy, !onValidationError && validationError ? `${inputId}-error` : undefined]
+                .filter(Boolean)
+                .join(' ') || undefined
+            }
             onChange={(e) => handleFiles(e.target.files)}
           />
         </div>
+      )}
+      {!onValidationError && validationError && (
+        <p id={`${inputId}-error`} className="form-field-error" role="alert">
+          {validationError}
+        </p>
       )}
 
       {/* Thumbnails */}

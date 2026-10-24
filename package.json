@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test": "node --test tests/personnelAvailability.test.mjs tests/formValidation.test.mjs",
+    "test:availability": "node --test tests/personnelAvailability.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

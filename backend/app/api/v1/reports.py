@@ -25,7 +25,11 @@ async def export_concerns_csv(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Stream a CSV export of all concerns."""
-    result = await db.execute(select(Concern).order_by(Concern.submitted_at.desc()))
+    result = await db.execute(
+        select(Concern)
+        .where(Concern.deleted_at.is_(None))
+        .order_by(Concern.submitted_at.desc())
+    )
     concerns = result.scalars().all()
 
     output = io.StringIO()

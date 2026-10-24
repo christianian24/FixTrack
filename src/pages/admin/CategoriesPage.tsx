@@ -4,6 +4,14 @@ import { FacilityCategory } from '../../types/category';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { PriorityBadge } from '../../components/common/Badge';
+import { FormField } from '../../components/forms/FormField';
+import {
+  clearResolvedFieldError,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+  type FieldValidators,
+} from '../../lib/formValidation';
 import {
   FolderTree,
   Plus,
@@ -27,6 +35,19 @@ export const CategoriesPage: React.FC = () => {
     defaultPriorityHint: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE'
   });
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const validators: FieldValidators = {
+    name: requiredField('Category name'),
+    description: requiredField('Description'),
+  };
+
+  const updateField = (field: keyof typeof formData, value: string) => {
+    const next = { ...formData, [field]: value };
+    setFormData(next);
+    setFieldErrors((errors) =>
+      clearResolvedFieldError(errors, field, value, validators[field] ?? (() => null), next),
+    );
+  };
 
   const handleOpenAdd = () => {
     setEditingCategory(null);
@@ -37,6 +58,7 @@ export const CategoriesPage: React.FC = () => {
       defaultPriorityHint: 'MEDIUM',
       status: 'ACTIVE'
     });
+    setFieldErrors({});
     setModalOpen(true);
   };
 
@@ -49,11 +71,15 @@ export const CategoriesPage: React.FC = () => {
       defaultPriorityHint: cat.defaultPriorityHint,
       status: cat.status
     });
+    setFieldErrors({});
     setModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateFields(formData, validators);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     if (editingCategory) {
       updateCategory(editingCategory.id, formData);
     } else {
@@ -148,41 +174,37 @@ export const CategoriesPage: React.FC = () => {
         onClose={() => setModalOpen(false)}
         title={editingCategory ? 'Edit Facility Category' : 'Create Facility Category'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Category Name
-            </label>
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <FormField id="category-name" label="Category Name" error={fieldErrors.name} required>
             <input
+              id="category-name"
               type="text"
-              required
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              aria-invalid={Boolean(fieldErrors.name)}
+              aria-describedby={fieldErrors.name ? 'category-name-error' : undefined}
+              onChange={(e) => updateField('name', e.target.value)}
               placeholder="e.g. Electrical or HVAC"
               className="input-base text-sm"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Description
-            </label>
+          <FormField id="category-description" label="Description" error={fieldErrors.description} required>
             <textarea
+              id="category-description"
               rows={3}
-              required
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              aria-invalid={Boolean(fieldErrors.description)}
+              aria-describedby={fieldErrors.description ? 'category-description-error' : undefined}
+              onChange={(e) => updateField('description', e.target.value)}
               placeholder="Fixtures, hardware, or campus systems under this classification..."
               className="textarea-base text-sm"
             />
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Default Priority Baseline
-              </label>
+            <FormField id="category-priority" label="Default Priority Baseline">
               <select
+                id="category-priority"
                 value={formData.defaultPriorityHint}
                 onChange={(e) => setFormData({ ...formData, defaultPriorityHint: e.target.value as any })}
                 className="select-base text-sm"
@@ -192,12 +214,10 @@ export const CategoriesPage: React.FC = () => {
                 <option value="HIGH">High</option>
                 <option value="CRITICAL">Critical</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Status
-              </label>
+            </FormField>
+            <FormField id="category-status" label="Status">
               <select
+                id="category-status"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                 className="select-base text-sm"
@@ -205,7 +225,7 @@ export const CategoriesPage: React.FC = () => {
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
-            </div>
+            </FormField>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">

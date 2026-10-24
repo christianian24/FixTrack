@@ -180,3 +180,10 @@ class ConcernDetail(ConcernSummary):
     closed_at: datetime | None
     photos: list[PhotoSchema] = []
     timeline_events: list[TimelineEventSchema] = []
+
+
+class ArchivedConcernDetail(ConcernDetail):
+    deleted_at: datetime
+    reporter_name: str | None = None
+    assigned_to_name: str | None = None
+    category_name: str | None = None

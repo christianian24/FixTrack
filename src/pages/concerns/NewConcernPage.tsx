@@ -8,7 +8,14 @@ import { PriorityAdvisorCard } from '../../components/forms/PriorityAdvisorCard'
 import { calculateRecommendedPriority } from '../../lib/priorityEngine';
 import { checkForDuplicateConcern } from '../../lib/duplicateDetection';
 import { ConcernPriority, SafetyRisk, AffectedUsers } from '../../types/concern';
-import { ApiError } from '../../services/api/client';
+import { FormField } from '../../components/forms/FormField';
+import {
+  clearResolvedFieldError,
+  mapApiError,
+  requiredField,
+  validateFields,
+  type FieldValidators,
+} from '../../lib/formValidation';
 import {
   FilePlus2,
   ArrowLeft,
@@ -34,51 +41,6 @@ const StepHeader: React.FC<{ step: number; title: string; subtitle?: string }> =
     </div>
   </div>
 );
-
-// Form field label
-const FieldLabel: React.FC<{ label: string; required?: boolean; icon?: React.ReactNode }> = ({ label, required, icon }) => (
-  <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 mb-1.5">
-    {icon}
-    {label}
-    {required && <span className="text-rose-400">*</span>}
-  </label>
-);
-
-const getSubmitErrors = (error: unknown): Record<string, string> => {
-  if (!(error instanceof ApiError) || error.status !== 422) {
-    return { submit: "We couldn't submit your concern right now. Please try again." };
-  }
-
-  const details = Array.isArray(error.detail) ? error.detail : [];
-  const fieldErrors: Record<string, string> = {};
-
-  details.forEach((detail) => {
-    if (!detail || typeof detail !== 'object') return;
-
-    const item = detail as { loc?: unknown; type?: unknown };
-    const location = Array.isArray(item.loc) ? item.loc : [];
-    const field = location.at(-1);
-    if (typeof field !== 'string') return;
-
-    if (field === 'description' && item.type === 'string_too_short') {
-      fieldErrors.description = 'Please provide at least 10 characters describing the concern.';
-    } else if (field === 'title' && item.type === 'string_too_short') {
-      fieldErrors.title = 'Please provide a longer concern title.';
-    } else if (field === 'other_location') {
-      fieldErrors.otherLocation = 'Please enter a specific location.';
-    } else if (field === 'building_id') {
-      fieldErrors.buildingId = 'Please select a valid building.';
-    } else if (field === 'room_id') {
-      fieldErrors.roomId = 'Please select a valid room for this building.';
-    } else if (field === 'title' || field === 'description') {
-      fieldErrors[field] = 'Please check this field and correct the invalid information.';
-    }
-  });
-
-  return Object.keys(fieldErrors).length > 0
-    ? fieldErrors
-    : { submit: 'Please check the form fields and correct the invalid information.' };
-};
 
 export const NewConcernPage: React.FC = () => {
   const { currentUser, currentRole } = useAuth();
@@ -141,19 +103,47 @@ export const NewConcernPage: React.FC = () => {
 
   const activePriority = manualPriority || priorityResult.recommendedPriority;
 
+  const fieldValidators: FieldValidators = {
+    title: (value) => {
+      const text = typeof value === 'string' ? value : '';
+      return !text.trim() || text.length < 5
+        ? 'Title must be at least 5 characters.'
+        : null;
+    },
+    description: (value) =>
+      typeof value === 'string' && value.trim()
+        ? null
+        : 'Please provide a detailed description.',
+    categoryId: requiredField('Category'),
+    buildingId: requiredField('Building'),
+    roomId: requiredField('Room'),
+    otherLocation: (value) =>
+      typeof value === 'string' && value.trim()
+        ? null
+        : 'Please enter a specific location.',
+  };
+
   const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-    if (!title.trim() || title.length < 5) errors.title = 'Title must be at least 5 characters.';
-    if (!description.trim()) errors.description = 'Please provide a detailed description.';
-    if (!categoryId) errors.categoryId = 'Please select a category.';
-    if (!buildingId) errors.buildingId = 'Please select a building.';
-    if (isOtherLocation) {
-      if (!otherLocation.trim()) errors.otherLocation = 'Please enter a specific location.';
-    } else if (!selectedRoomId) {
-      errors.roomId = 'Please select a room.';
-    }
+    const values = { title, description, categoryId, buildingId, roomId: selectedRoomId, otherLocation };
+    const validators = isOtherLocation
+      ? { ...fieldValidators, roomId: () => null }
+      : { ...fieldValidators, otherLocation: () => null };
+    const errors = validateFields(values, validators);
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const clearFieldError = (field: string, value: unknown) => {
+    const values = { title, description, categoryId, buildingId, roomId: selectedRoomId, otherLocation };
+    setFormErrors((errors) =>
+      clearResolvedFieldError(
+        errors,
+        field,
+        value,
+        fieldValidators[field] ?? (() => null),
+        { ...values, [field]: value },
+      ),
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -198,7 +188,17 @@ export const NewConcernPage: React.FC = () => {
       navigate(`/concerns/${newConcern.id}`);
     } catch (error) {
       setIsSubmitting(false);
-      setFormErrors(getSubmitErrors(error));
+      const feedback = mapApiError(
+        error,
+        "We couldn't submit your concern right now. Please try again.",
+        {
+          knownFields: ['title', 'description', 'categoryId', 'buildingId', 'roomId', 'otherLocation'],
+        },
+      );
+      setFormErrors({
+        ...feedback.fieldErrors,
+        ...(feedback.generalMessage ? { submit: feedback.generalMessage } : {}),
+      });
     }
   };
 
@@ -230,36 +230,42 @@ export const NewConcernPage: React.FC = () => {
         />
       )}
 
-      <form onSubmit={handleSubmit} className={isReporter ? 'space-y-3' : 'space-y-4'}>
+      <form onSubmit={handleSubmit} className={isReporter ? 'space-y-3' : 'space-y-4'} noValidate>
         {/* Step 1: Basic Details */}
         <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isReporter ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
           <StepHeader step={1} title="Basic Concern Details" subtitle="Describe what's broken or needs attention." />
 
-          <div>
-            <FieldLabel label="Issue Title" required />
+          <FormField id="concern-title" label="Issue Title" error={formErrors.title} required>
             <input
+              id="concern-title"
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              aria-invalid={Boolean(formErrors.title)}
+              aria-describedby={formErrors.title ? 'concern-title-error' : undefined}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                clearFieldError('title', e.target.value);
+              }}
               placeholder="e.g. Broken whiteboard arm, sparking outlet in Lab 301…"
-              className={`input-base ${formErrors.title ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : ''}`}
-              id="concern-title"
+              className="input-base"
             />
-            {formErrors.title && <p className="text-xs text-rose-500 mt-1">{formErrors.title}</p>}
-          </div>
+          </FormField>
 
-          <div>
-            <FieldLabel label="Detailed Description" required />
+          <FormField id="concern-description" label="Detailed Description" error={formErrors.description} required>
             <textarea
+              id="concern-description"
               rows={4}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              aria-invalid={Boolean(formErrors.description)}
+              aria-describedby={formErrors.description ? 'concern-description-error' : undefined}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                clearFieldError('description', e.target.value);
+              }}
               placeholder="Describe the issue in detail — specific fixture, equipment ID, sounds, smells, or hazard…"
-              className={`input-base resize-none ${formErrors.description ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : ''}`}
-              id="concern-description"
+              className="input-base resize-none"
             />
-            {formErrors.description && <p className="text-xs text-rose-500 mt-1">{formErrors.description}</p>}
-          </div>
+          </FormField>
         </div>
 
         {/* Step 2: Location & Category */}
@@ -268,22 +274,44 @@ export const NewConcernPage: React.FC = () => {
 
           <div className={`grid grid-cols-1 sm:grid-cols-3 ${isReporter ? 'gap-3' : 'gap-4'}`}>
             <div>
-              <FieldLabel label="Category" required icon={<FolderTree className="w-3.5 h-3.5 text-sky-500" />} />
-              <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="select-base" id="concern-category">
+              <FormField
+                id="concern-category"
+                label={<><FolderTree className="inline w-3.5 h-3.5 text-sky-500" /> Category</>}
+                error={formErrors.categoryId}
+                required
+              >
+              <select
+                value={categoryId}
+                onChange={(e) => {
+                  setCategoryId(e.target.value);
+                  clearFieldError('categoryId', e.target.value);
+                }}
+                className="select-base"
+                id="concern-category"
+                aria-invalid={Boolean(formErrors.categoryId)}
+                aria-describedby={formErrors.categoryId ? 'concern-category-error' : undefined}
+              >
                 {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
               </select>
+              </FormField>
               {selectedCategory && (
                 <p className="text-[11px] text-slate-400 mt-1 italic line-clamp-1">{selectedCategory.description}</p>
               )}
             </div>
 
             <div>
-              <FieldLabel label="Building" required icon={<Building className="w-3.5 h-3.5 text-sky-500" />} />
+              <FormField
+                id="concern-building"
+                label={<><Building className="inline w-3.5 h-3.5 text-sky-500" /> Building</>}
+                error={formErrors.buildingId}
+                required
+              >
               <select
                 value={buildingId}
                 onChange={(e) => {
                   const newBld = e.target.value;
                   setBuildingId(newBld);
+                  clearFieldError('buildingId', newBld);
                   setDuplicateIgnored(false);
                   setOtherLocation('');
                   setRoomId('');
@@ -291,13 +319,21 @@ export const NewConcernPage: React.FC = () => {
                 }}
                 className="select-base"
                 id="concern-building"
+                aria-invalid={Boolean(formErrors.buildingId)}
+                aria-describedby={formErrors.buildingId ? 'concern-building-error' : undefined}
               >
                 {buildings.map(bld => <option key={bld.id} value={bld.id}>{bld.name} ({bld.code})</option>)}
               </select>
+              </FormField>
             </div>
 
             <div>
-              <FieldLabel label="Room / Location" required icon={<DoorOpen className="w-3.5 h-3.5 text-sky-500" />} />
+              <FormField
+                id="concern-room"
+                label={<><DoorOpen className="inline w-3.5 h-3.5 text-sky-500" /> Room / Location</>}
+                error={formErrors.roomId}
+                required
+              >
               <select
                 value={isOtherLocation ? OTHER_LOCATION_OPTION : roomId}
                 disabled={!buildingId}
@@ -305,11 +341,14 @@ export const NewConcernPage: React.FC = () => {
                   const value = e.target.value;
                   setIsOtherLocation(value === OTHER_LOCATION_OPTION);
                   setRoomId(value === OTHER_LOCATION_OPTION ? '' : value);
+                  clearFieldError('roomId', value);
                   setDuplicateIgnored(false);
                   if (value !== OTHER_LOCATION_OPTION) setOtherLocation('');
                 }}
                 className="select-base"
                 id="concern-room"
+                aria-invalid={Boolean(formErrors.roomId)}
+                aria-describedby={formErrors.roomId ? 'concern-room-error' : undefined}
               >
                 <option value="">Select room/location</option>
                 {buildings.some((building) => building.id === buildingId) && (
@@ -319,6 +358,7 @@ export const NewConcernPage: React.FC = () => {
                   </>
                 )}
               </select>
+              </FormField>
               {!buildingId && (
                 <p className="text-xs text-slate-400 mt-1">Select a building first.</p>
               )}
@@ -327,19 +367,28 @@ export const NewConcernPage: React.FC = () => {
               )}
             </div>
             {isOtherLocation && (
-              <div className="sm:col-span-3">
-                <FieldLabel label="Other Location" required />
+              <FormField
+                id="concern-other-location"
+                label="Other Location"
+                error={formErrors.otherLocation}
+                required
+                className="sm:col-span-3"
+              >
                 <input
+                  id="concern-other-location"
                   type="text"
                   value={otherLocation}
-                  onChange={(e) => setOtherLocation(e.target.value)}
+                  aria-invalid={Boolean(formErrors.otherLocation)}
+                  aria-describedby={formErrors.otherLocation ? 'concern-other-location-error' : undefined}
+                  onChange={(e) => {
+                    setOtherLocation(e.target.value);
+                    clearFieldError('otherLocation', e.target.value);
+                  }}
                   placeholder="Enter the specific location"
-                  className={`input-base ${formErrors.otherLocation ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : ''}`}
-                  id="concern-other-location"
+                  className="input-base"
                   maxLength={500}
                 />
-                {formErrors.otherLocation && <p className="text-xs text-rose-500 mt-1">{formErrors.otherLocation}</p>}
-              </div>
+              </FormField>
             )}
           </div>
         </div>
@@ -349,25 +398,23 @@ export const NewConcernPage: React.FC = () => {
           <StepHeader step={3} title="Safety & Priority Assessment" subtitle="Help us understand the urgency and impact." />
 
           <div className={`grid grid-cols-1 sm:grid-cols-2 ${isReporter ? 'gap-3' : 'gap-4'}`}>
-            <div>
-              <FieldLabel label="Safety Risk Level" icon={<AlertTriangle className="w-3.5 h-3.5 text-amber-500" />} />
-              <select value={safetyRisk} onChange={(e) => setSafetyRisk(e.target.value as SafetyRisk)} className="select-base" id="concern-safety">
+            <FormField id="concern-safety" label={<><AlertTriangle className="inline w-3.5 h-3.5 text-amber-500" /> Safety Risk Level</>}>
+              <select id="concern-safety" value={safetyRisk} onChange={(e) => setSafetyRisk(e.target.value as SafetyRisk)} className="select-base">
                 <option value="NONE">None — Cosmetic or non-hazardous</option>
                 <option value="MINOR">Minor — Minor inconvenience or snagging hazard</option>
                 <option value="SIGNIFICANT">Significant — Slipping, falling debris, exposed wire</option>
                 <option value="IMMEDIATE_DANGER">Immediate Danger — Live voltage, fire, structural risk</option>
               </select>
-            </div>
+            </FormField>
 
-            <div>
-              <FieldLabel label="Affected Population" icon={<Users className="w-3.5 h-3.5 text-sky-500" />} />
-              <select value={affectedUsers} onChange={(e) => setAffectedUsers(e.target.value as AffectedUsers)} className="select-base" id="concern-affected">
+            <FormField id="concern-affected" label={<><Users className="inline w-3.5 h-3.5 text-sky-500" /> Affected Population</>}>
+              <select id="concern-affected" value={affectedUsers} onChange={(e) => setAffectedUsers(e.target.value as AffectedUsers)} className="select-base">
                 <option value="INDIVIDUAL">Individual (1–3 users)</option>
                 <option value="CLASS">Classroom / Section (30–60 students)</option>
                 <option value="FLOOR">Entire Floor (100+ occupants)</option>
                 <option value="CAMPUS_WIDE">Campus Wide / Central Infrastructure</option>
               </select>
-            </div>
+            </FormField>
           </div>
 
           <PriorityAdvisorCard

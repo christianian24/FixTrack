@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
+import { FormField } from '../../components/forms/FormField';
+import {
+  clearResolvedFieldError,
+  emailField,
+  mapApiError,
+  matchingField,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+  type FieldValidators,
+} from '../../lib/formValidation';
 import { UserCheck, ArrowLeft, Shield, School } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
@@ -19,31 +30,75 @@ export const RegisterPage: React.FC = () => {
   });
 
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const validators: FieldValidators = {
+    firstName: requiredField('First name'),
+    lastName: requiredField('Last name'),
+    email: emailField,
+    userType: requiredField('Campus affiliation'),
+    password: requiredField('Password'),
+    confirmPassword: (value, values) =>
+      requiredField('Confirm password')(value, values) ??
+      matchingField(value, values, 'password', 'Passwords'),
+  };
+
+  const updateField = (field: keyof typeof formData, value: string) => {
+    const nextFormData = { ...formData, [field]: value };
+    setFormData(nextFormData);
+    setFieldErrors((current) => {
+      let nextErrors = clearResolvedFieldError(
+        current,
+        field,
+        value,
+        validators[field] ?? (() => null),
+        nextFormData,
+      );
+      if (field === 'password') {
+        nextErrors = clearResolvedFieldError(
+          nextErrors,
+          'confirmPassword',
+          nextFormData.confirmPassword,
+          validators.confirmPassword,
+          nextFormData,
+        );
+      }
+      return nextErrors;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match. Please re-enter.');
+    setError(null);
+    const validationErrors = validateFields(formData, validators);
+    setFieldErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
       return;
     }
 
-    const registrationError = await register({
-      first_name: formData.firstName,
-      last_name: formData.lastName,
-      email: formData.email,
-      password: formData.password,
-      role: 'REPORTER',
-      user_type: formData.userType,
-      department: formData.department,
-      phone: formData.phone,
-    });
+    try {
+      await register({
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        role: 'REPORTER',
+        user_type: formData.userType,
+        department: formData.department,
+        phone: formData.phone,
+      });
 
-    if (registrationError) {
-      setError(registrationError);
-      return;
+      navigate('/dashboard');
+    } catch (registrationError) {
+      const feedback = mapApiError(
+        registrationError,
+        "We couldn't create your account. Please try again.",
+        {
+          knownFields: ['firstName', 'lastName', 'email', 'userType', 'password', 'confirmPassword'],
+        },
+      );
+      setFieldErrors(feedback.fieldErrors);
+      setError(feedback.generalMessage);
     }
-
-    navigate('/dashboard');
   };
 
   return (
@@ -70,122 +125,113 @@ export const RegisterPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+        <div role="alert" className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
           <Shield className="w-4 h-4 flex-shrink-0 text-rose-500" />
           <span>{error}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              First Name
-            </label>
+          <FormField id="registration-first-name" label="First Name" error={fieldErrors.firstName} required>
             <input
+              id="registration-first-name"
               type="text"
-              required
+              aria-invalid={Boolean(fieldErrors.firstName)}
+              aria-describedby={fieldErrors.firstName ? 'registration-first-name-error' : undefined}
               value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              onChange={(e) => updateField('firstName', e.target.value)}
               className="input-base text-sm"
               placeholder="e.g. Jordan"
             />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Last Name
-            </label>
+          </FormField>
+          <FormField id="registration-last-name" label="Last Name" error={fieldErrors.lastName} required>
             <input
+              id="registration-last-name"
               type="text"
-              required
+              aria-invalid={Boolean(fieldErrors.lastName)}
+              aria-describedby={fieldErrors.lastName ? 'registration-last-name-error' : undefined}
               value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              onChange={(e) => updateField('lastName', e.target.value)}
               className="input-base text-sm"
               placeholder="e.g. Miller"
             />
-          </div>
+          </FormField>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-            Institutional Email Address
-          </label>
+        <FormField id="registration-email" label="Institutional Email Address" error={fieldErrors.email} required>
           <input
+            id="registration-email"
             type="email"
-            required
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            aria-invalid={Boolean(fieldErrors.email)}
+            aria-describedby={fieldErrors.email ? 'registration-email-error' : undefined}
+            onChange={(e) => updateField('email', e.target.value)}
             placeholder="username@school.edu"
             className="input-base text-sm"
           />
-        </div>
+        </FormField>
 
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Campus Affiliation
-            </label>
+          <FormField id="registration-user-type" label="Campus Affiliation" error={fieldErrors.userType} required>
             <select
+              id="registration-user-type"
               value={formData.userType}
-              onChange={(e) => setFormData({ ...formData, userType: e.target.value as any })}
+              aria-invalid={Boolean(fieldErrors.userType)}
+              aria-describedby={fieldErrors.userType ? 'registration-user-type-error' : undefined}
+              onChange={(e) => updateField('userType', e.target.value)}
               className="select-base text-sm"
             >
               <option value="STUDENT">Student</option>
               <option value="FACULTY">Faculty Member</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Department
-            </label>
+          </FormField>
+          <FormField id="registration-department" label="Department">
             <input
+              id="registration-department"
               type="text"
               value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              onChange={(e) => updateField('department', e.target.value)}
               className="input-base text-sm"
               placeholder="e.g. Computer Science"
             />
-          </div>
+          </FormField>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-            Mobile Number (SMS Notifications)
-          </label>
+        <FormField id="registration-phone" label="Mobile Number (SMS Notifications)">
           <input
+            id="registration-phone"
             type="tel"
             value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            onChange={(e) => updateField('phone', e.target.value)}
             placeholder="+1 (555) 000-0000"
             className="input-base text-sm"
           />
-        </div>
+        </FormField>
 
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Password
-            </label>
+          <FormField id="registration-password" label="Password" error={fieldErrors.password} required>
             <input
+              id="registration-password"
               type="password"
-              required
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? 'registration-password-error' : undefined}
+              onChange={(e) => updateField('password', e.target.value)}
               className="input-base text-sm"
             />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Confirm Password
-            </label>
+          </FormField>
+          <FormField id="registration-confirm-password" label="Confirm Password" error={fieldErrors.confirmPassword} required>
             <input
+              id="registration-confirm-password"
               type="password"
-              required
               value={formData.confirmPassword}
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              aria-invalid={Boolean(fieldErrors.confirmPassword)}
+              aria-describedby={fieldErrors.confirmPassword ? 'registration-confirm-password-error' : undefined}
+              onChange={(e) => updateField('confirmPassword', e.target.value)}
               className="input-base text-sm"
             />
-          </div>
+          </FormField>
         </div>
 
         <button

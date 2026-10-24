@@ -1,16 +1,14 @@
 /**
  * Axios-based API client with JWT Bearer token interceptor.
  *
- * Base URL defaults to VITE_API_BASE_URL env var, falling back to /api/v1
- * for production (Vercel reverse-proxy) or localhost:8000 for local dev.
+ * Base URL defaults to VITE_API_BASE_URL, or the local FastAPI URL for development.
  */
+
+import { ApiError } from './apiError.ts';
+export { ApiError } from './apiError.ts';
 
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
-
-export function getApiBaseUrl(): string {
-  return BASE_URL;
-}
 
 export function resolveApiUrl(path: string): string {
   if (/^https?:\/\//.test(path)) return path;
@@ -46,17 +44,6 @@ export function clearToken(): void {
 }
 
 // ─── Request helper ───────────────────────────────────────────────────────────
-
-export class ApiError extends Error {
-  status: number;
-  detail: unknown;
-
-  constructor(status: number, detail: unknown) {
-    super(typeof detail === 'string' ? detail : JSON.stringify(detail));
-    this.status = status;
-    this.detail = detail;
-  }
-}
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
@@ -126,10 +113,6 @@ export const apiClient = {
 
   patch<T>(path: string, body?: unknown): Promise<T> {
     return request<T>(path, { method: 'PATCH', body });
-  },
-
-  put<T>(path: string, body?: unknown): Promise<T> {
-    return request<T>(path, { method: 'PUT', body });
   },
 
   delete<T = void>(path: string): Promise<T> {

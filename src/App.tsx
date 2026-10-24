@@ -24,6 +24,7 @@ import { UsersPage } from './pages/admin/UsersPage';
 import { BuildingsPage } from './pages/admin/BuildingsPage';
 import { RoomsPage } from './pages/admin/RoomsPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
+import { ArchivedConcernsPage } from './pages/admin/ArchivedConcernsPage';
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage';
 import { ReportsPage } from './pages/reports/ReportsPage';
 import { NotificationsPage } from './pages/notifications/NotificationsPage';
@@ -120,6 +121,14 @@ export function App() {
                 element={
                   <ProtectedRoute allowedRoles={['ADMINISTRATOR']}>
                     <CategoriesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/archived-concerns"
+                element={
+                  <ProtectedRoute allowedRoles={['ADMINISTRATOR']}>
+                    <ArchivedConcernsPage />
                   </ProtectedRoute>
                 }
               />

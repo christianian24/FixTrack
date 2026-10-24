@@ -25,6 +25,7 @@ export interface User {
   department?: string;
   studentId?: string;
   status: UserStatus;
+  isOnline?: boolean;
   createdAt: string;
   updatedAt: string;
 }

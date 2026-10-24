@@ -24,6 +24,7 @@ async def analytics_summary(
     # Count by status
     status_rows = await db.execute(
         select(Concern.status, func.count().label("count"))
+        .where(Concern.deleted_at.is_(None))
         .group_by(Concern.status)
     )
     by_status = {row.status: row.count for row in status_rows}
@@ -31,18 +32,24 @@ async def analytics_summary(
     # Count by priority
     priority_rows = await db.execute(
         select(Concern.priority, func.count().label("count"))
+        .where(Concern.deleted_at.is_(None))
         .group_by(Concern.priority)
     )
     by_priority = {row.priority: row.count for row in priority_rows}
 
     # Total
-    total_result = await db.execute(select(func.count()).select_from(Concern))
+    total_result = await db.execute(
+        select(func.count())
+        .select_from(Concern)
+        .where(Concern.deleted_at.is_(None))
+    )
     total = total_result.scalar() or 0
 
     # Open (not closed/rejected/verified)
     open_result = await db.execute(
         select(func.count()).select_from(Concern).where(
-            Concern.status.not_in(["CLOSED", "REJECTED", "VERIFIED"])
+            Concern.deleted_at.is_(None),
+            Concern.status.not_in(["CLOSED", "REJECTED", "VERIFIED"]),
         )
     )
     open_count = open_result.scalar() or 0

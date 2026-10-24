@@ -1,4 +1,4 @@
-export const themePalette = {
+const themePalette = {
   critical: '#FF2727',
   criticalSoft: '#FEE2E2',
   warning: '#FFB020',
@@ -36,5 +36,3 @@ export const themePalette = {
 } as const;
 
 export const darkThemePalette = themePalette;
-
-export default themePalette;

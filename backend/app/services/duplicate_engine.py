@@ -69,7 +69,10 @@ async def find_duplicates(
     Query the DB for open concerns that might be duplicates.
     Returns up to 5 matches sorted by similarity descending.
     """
-    q = select(Concern).where(Concern.status.in_(OPEN_STATUSES))
+    q = select(Concern).where(
+        Concern.status.in_(OPEN_STATUSES),
+        Concern.deleted_at.is_(None),
+    )
     if exclude_id:
         q = q.where(Concern.id != exclude_id)
 

@@ -2,7 +2,7 @@
 
 FixTrack is a facility concern reporting and maintenance monitoring system for educational institutions. Reporters can submit concerns with room-level locations and photos, while maintenance personnel, supervisors, and administrators can manage work orders, repairs, notifications, and operational reporting.
 
-The repository contains a React frontend and a FastAPI backend. The frontend can run against the backend or in an offline demo mode backed by local mock data.
+The repository contains a React frontend and a FastAPI backend. The frontend uses the backend as its source of truth, including for one-click demo-account login.
 
 ## Features
 
@@ -55,13 +55,12 @@ The repository contains a React frontend and a FastAPI backend. The frontend can
 │   └── requirements.txt
 ├── src/
 │   ├── components/        # Shared UI, forms, layouts, and concern components
-│   ├── data/              # Offline demo data
+│   ├── data/              # Approved real-account demo login list
 │   ├── pages/             # Application screens
 │   ├── services/api/      # Backend API clients
 │   ├── store/             # AuthContext and FacilityCareContext
 │   └── types/             # Frontend domain types
 ├── .env.example           # Frontend environment variables
-├── vercel.json            # SPA rewrites and security headers
 └── package.json
 ```
 
@@ -81,7 +80,7 @@ copy .env.example .env.local
 npm install
 ```
 
-The default frontend API URL is `http://localhost:8000/api/v1`. Set `VITE_OFFLINE_DEMO=true` in `.env.local` when the backend is not needed.
+The default frontend API URL is `http://localhost:8000/api/v1`. Start the backend before using the frontend, including when signing in through a demo account.
 
 ### 2. Set up and run the backend
 
@@ -102,8 +101,10 @@ SQLite tables are created automatically when the application starts. Seed the lo
 ```bash
 python -m app.db.seed
 python -m alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --env-file .env --port 8000
 ```
+
+The backend `.env.example` sets `APP_ENV=development` and enables `FIXTRACK_DEMO_LOGIN_ENABLED` for local demo login. Copy it to `backend/.env` and restart the backend after changing the setting. For production, set `APP_ENV=production` and `FIXTRACK_DEMO_LOGIN_ENABLED=false`; the endpoint rejects demo login in production regardless of the flag.
 
 Apply Alembic migrations after seeding and before starting the API, including when upgrading an existing SQLite database. The migration records the new concern location fields and preserves building IDs for existing room-based concerns.
 
@@ -129,7 +130,7 @@ The frontend runs at `http://localhost:5173`.
 
 ## Demo Accounts
 
-The seed script creates six backend demo users. They all use the password `demo1234`.
+The seed script creates six backend demo users. When demo login is enabled in a development environment, each account is available through its one-click login card. Normal email/password login remains available.
 
 | Role | Name | Email |
 | --- | --- | --- |
@@ -140,7 +141,7 @@ The seed script creates six backend demo users. They all use the password `demo1
 | Maintenance Supervisor | Carlos Mendoza | `carlos.supervisor@school.edu` |
 | Administrator | Elena Vance | `elena.admin@school.edu` |
 
-The application also supports demo-persona login and role switching through the UI. In offline demo mode, the frontend uses the mock data under `src/data/` and does not require the API.
+Demo login uses the explicitly allowlisted account IDs in the backend auth endpoint and issues the same JWT used by normal login. The frontend then loads the signed-in account from `/auth/me`; user data always comes from the API.
 
 ## Verification
 
@@ -163,10 +164,10 @@ pytest tests -v
 
 ## Deployment
 
-The frontend is configured for Vercel through `vercel.json`. Set `VITE_API_BASE_URL` to the deployed backend URL including the `/api/v1` path, for example:
+The frontend is a Vite single-page application and the backend is a FastAPI service. Build the frontend with `npm run build` and serve the generated `dist/` directory from the chosen static web server. Configure the backend service to run `uvicorn app.main:app`, and set `VITE_API_BASE_URL` to the backend API URL including `/api/v1`.
 
 ```text
-VITE_API_BASE_URL=https://api.example.com/api/v1
+VITE_API_BASE_URL=https://<backend-host>/api/v1
 ```
 
-Configure the backend `CORS_ORIGINS`, `SECRET_KEY`, `DATABASE_URL`, and upload storage settings for the deployed environment. Do not use the development secret key in production.
+Configure backend `CORS_ORIGINS`, `SECRET_KEY`, `DATABASE_URL`, and upload storage for the deployment environment. Do not use the development secret key or enable demo login in production.

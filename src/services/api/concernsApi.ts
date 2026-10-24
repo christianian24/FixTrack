@@ -48,6 +48,25 @@ export interface ConcernRead {
   timeline_events?: TimelineEvent[];
 }
 
+export type ConcernApiStatus =
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'WAITING_FOR_MATERIALS'
+  | 'COMPLETED'
+  | 'VERIFIED'
+  | 'CLOSED'
+  | 'REJECTED';
+
+export interface ArchivedConcernRead extends Omit<ConcernRead, 'status'> {
+  status: ConcernApiStatus;
+  deleted_at: string;
+  reporter_name: string | null;
+  assigned_to_name: string | null;
+  category_name: string | null;
+}
+
 export interface ConcernPhoto {
   id: string;
   url: string;
@@ -89,6 +108,22 @@ export const concernsApi = {
 
   get(id: string): Promise<ConcernRead> {
     return apiClient.get<ConcernRead>(`/concerns/${id}`);
+  },
+
+  archive(id: string): Promise<void> {
+    return apiClient.delete<void>(`/concerns/${id}`);
+  },
+
+  listArchived(): Promise<ArchivedConcernRead[]> {
+    return apiClient.get<ArchivedConcernRead[]>('/concerns/archived');
+  },
+
+  restore(id: string): Promise<ConcernRead> {
+    return apiClient.patch<ConcernRead>(`/concerns/${id}/restore`);
+  },
+
+  permanentlyDelete(id: string): Promise<void> {
+    return apiClient.delete<void>(`/concerns/${id}/permanent`);
   },
 
   update(id: string, data: { priority?: string }): Promise<ConcernRead> {

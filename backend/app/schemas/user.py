@@ -59,16 +59,20 @@ class UserPublic(BaseModel):
     phone: str | None
     avatar_url: str | None
     is_active: bool
+    is_online: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
+class HeartbeatResponse(BaseModel):
+    is_online: bool
+
+
 # ── Auth schemas ──────────────────────────────────────────────────────────────
 
-class LoginRequest(BaseModel):
-    username: str  # email — OAuth2PasswordRequestForm uses "username"
-    password: str
+class DemoLoginRequest(BaseModel):
+    user_id: str = Field(..., min_length=1, max_length=36)
 
 
 class TokenResponse(BaseModel):

@@ -16,15 +16,13 @@ import {
   Building as BuildingIcon,
   DoorOpen,
   FolderTree,
+  ArchiveRestore,
   Bell,
   Menu,
   X,
-  RefreshCw,
-  Sparkles,
   School,
-  LogOut,
-  Eye,
   Settings,
+  LogOut,
   LucideIcon,
 } from 'lucide-react';
 
@@ -64,11 +62,7 @@ interface SidebarContentProps {
   navItems: NavItem[];
   locationPathname: string;
   onCloseMobile: () => void;
-  isDemoMode: boolean;
-  setDemoMode: (mode: boolean) => void;
-  handleReset: () => void;
-  resetSuccess: boolean;
-  handleLogout: () => void;
+  onLogout: () => void;
 }
 
 const SidebarContent: React.FC<SidebarContentProps> = ({
@@ -78,11 +72,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   navItems,
   locationPathname,
   onCloseMobile,
-  isDemoMode,
-  setDemoMode,
-  handleReset,
-  resetSuccess,
-  handleLogout,
+  onLogout,
 }) => (
   <div className="flex flex-col h-full">
     {/* Logo */}
@@ -166,6 +156,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 
     {/* Footer */}
     <div className="px-3 py-2.5 border-t border-slate-100 space-y-1.5">
+      <button
+        type="button"
+        onClick={onLogout}
+        className="flex w-full items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
+      >
+        <LogOut className="w-4 h-4 text-slate-400" />
+        <span>Sign Out</span>
+      </button>
       <div className="flex items-center justify-between px-2.5 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
         <span className="text-[10px] text-emerald-700 font-medium flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
@@ -184,13 +182,10 @@ export const AppLayout: React.FC = () => {
     currentRole,
     isAuthenticated,
     isLoading,
-    isDemoMode,
-    setDemoMode,
     logout,
   } = useAuth();
-  const { notifications, resetDemoData } = useFacilityCare();
+  const { notifications } = useFacilityCare();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -204,19 +199,6 @@ export const AppLayout: React.FC = () => {
   }
 
   const unreadNotifs = notifications.filter(n => !n.read).length;
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const handleReset = () => {
-    if (window.confirm('Reset all demo facility concerns, audit logs, and repair tasks to factory defaults?')) {
-      resetDemoData();
-      setResetSuccess(true);
-      setTimeout(() => setResetSuccess(false), 2000);
-    }
-  };
 
   const getNavItems = (): NavItem[] => {
     switch (currentRole) {
@@ -253,6 +235,7 @@ export const AppLayout: React.FC = () => {
           { label: 'All Concerns', path: '/concerns', icon: FileText },
           { label: 'Analytics', path: '/analytics', icon: BarChart3 },
           { label: 'User Directory', path: '/admin/users', icon: Users },
+          { label: 'Archived Concerns', path: '/admin/archived-concerns', icon: ArchiveRestore },
           { label: 'Buildings', path: '/admin/buildings', icon: BuildingIcon },
           { label: 'Rooms', path: '/admin/rooms', icon: DoorOpen },
           { label: 'Categories', path: '/admin/categories', icon: FolderTree },
@@ -273,11 +256,11 @@ export const AppLayout: React.FC = () => {
     navItems,
     locationPathname: location.pathname,
     onCloseMobile: () => setMobileOpen(false),
-    isDemoMode,
-    setDemoMode,
-    handleReset,
-    resetSuccess,
-    handleLogout,
+    onLogout: () => {
+      logout();
+      setMobileOpen(false);
+      navigate('/login', { replace: true });
+    },
   };
 
   return (

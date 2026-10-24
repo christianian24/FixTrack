@@ -1,26 +1,24 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
-import { useFacilityCare } from '../../store/FacilityCareContext';
-import { ROLE_NAMES } from '../../lib/permissions';
-import { resolveApiUrl } from '../../services/api/client';
+import { FormField } from '../../components/forms/FormField';
+import {
+  clearResolvedFieldError,
+  matchingField,
+  minimumLengthField,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+  type FieldValidators,
+} from '../../lib/formValidation';
 import {
   Settings,
   Key,
-  Lock,
   CheckCircle2,
-  Shield,
   Bell,
-  Sparkles,
-  Eye,
-  RefreshCw,
-  LogOut,
 } from 'lucide-react';
 
 export const SettingsPage: React.FC = () => {
-  const { currentUser, currentRole, logout, isDemoMode, setDemoMode } = useAuth();
-  const { resetDemoData } = useFacilityCare();
-  const navigate = useNavigate();
+  const { currentRole } = useAuth();
   const isCompactRole = currentRole === 'REPORTER' || currentRole === 'MAINTENANCE_PERSONNEL' || currentRole === 'MAINTENANCE_SUPERVISOR' || currentRole === 'ADMINISTRATOR';
   const isAdminRole = currentRole === 'ADMINISTRATOR';
   const isSupervisorRole = currentRole === 'MAINTENANCE_SUPERVISOR';
@@ -32,14 +30,51 @@ export const SettingsPage: React.FC = () => {
     : isTechnicianRole
     ? 'w-full py-2.5 text-sm cursor-pointer mt-2 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 transition-colors shadow-sm'
     : 'btn-primary w-full py-2.5 text-sm cursor-pointer mt-2';
-  const initials = `${currentUser.firstName.charAt(0)}${currentUser.lastName.charAt(0)}`.toUpperCase();
-
   // Password state
   const [currPass, setCurrPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const passwordValidators: FieldValidators = {
+    currPass: requiredField('Current password'),
+    newPass: (value) =>
+      requiredField('New password')(value, {}) ??
+      minimumLengthField(value, 'Password', 6),
+    confirmPass: (value, values) =>
+      requiredField('Confirm password')(value, values) ??
+      matchingField(value, values, 'newPass', 'Passwords'),
+  };
+
+  const updatePasswordField = (field: 'currPass' | 'newPass' | 'confirmPass', value: string) => {
+    const nextValues = {
+      currPass: field === 'currPass' ? value : currPass,
+      newPass: field === 'newPass' ? value : newPass,
+      confirmPass: field === 'confirmPass' ? value : confirmPass,
+    };
+    if (field === 'currPass') setCurrPass(value);
+    else if (field === 'newPass') setNewPass(value);
+    else setConfirmPass(value);
+    setFieldErrors((errors) => {
+      let nextErrors = clearResolvedFieldError(
+        errors,
+        field,
+        value,
+        passwordValidators[field],
+        nextValues,
+      );
+      if (field === 'newPass') {
+        nextErrors = clearResolvedFieldError(
+          nextErrors,
+          'confirmPass',
+          nextValues.confirmPass,
+          passwordValidators.confirmPass,
+          nextValues,
+        );
+      }
+      return nextErrors;
+    });
+  };
 
   // Preference toggles
   const [emailAlerts, setEmailAlerts] = useState(true);
@@ -49,16 +84,9 @@ export const SettingsPage: React.FC = () => {
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
-    setPasswordError(null);
-
-    if (newPass.length < 6) {
-      setPasswordError('Password must be at least 6 characters long.');
-      return;
-    }
-    if (newPass !== confirmPass) {
-      setPasswordError('New password and confirmation password do not match.');
-      return;
-    }
+    const errors = validateFields({ currPass, newPass, confirmPass }, passwordValidators);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     setPasswordSaved(true);
     setCurrPass('');
@@ -73,18 +101,6 @@ export const SettingsPage: React.FC = () => {
     setTimeout(() => setPrefSaved(false), 2500);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  const handleResetDemoData = () => {
-    if (window.confirm('Reset all facility concerns, buildings, rooms, and notifications to default sample state?')) {
-      resetDemoData();
-      alert('Demo data restored to pristine state.');
-    }
-  };
-
   return (
     <div className={isCompactRole ? 'max-w-4xl mx-auto space-y-3' : 'max-w-4xl mx-auto space-y-4'}>
       {/* Header */}
@@ -93,7 +109,7 @@ export const SettingsPage: React.FC = () => {
           <Settings className="w-6 h-6 text-sky-600" /> Settings & Security
         </h1>
         <p className="text-sm text-slate-500 mt-0.5">
-          Manage your account credentials, password security, notification alerts, and active session
+          Manage your account credentials, password security, and notification alerts
         </p>
       </div>
 
@@ -113,55 +129,45 @@ export const SettingsPage: React.FC = () => {
             </div>
           )}
 
-          {passwordError && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <Shield className="w-4 h-4 text-rose-500 flex-shrink-0" />
-              <span>{passwordError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleChangePassword} className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Current Password
-              </label>
+          <form onSubmit={handleChangePassword} className="space-y-3.5" noValidate>
+            <FormField id="settings-current-password" label="Current Password" error={fieldErrors.currPass} required>
               <input
+                id="settings-current-password"
                 type="password"
-                required
                 value={currPass}
-                onChange={(e) => setCurrPass(e.target.value)}
+                aria-invalid={Boolean(fieldErrors.currPass)}
+                aria-describedby={fieldErrors.currPass ? 'settings-current-password-error' : undefined}
+                onChange={(e) => updatePasswordField('currPass', e.target.value)}
                 placeholder="••••••••"
                 className="input-base text-sm"
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                New Password
-              </label>
+            <FormField id="settings-new-password" label="New Password" error={fieldErrors.newPass} required>
               <input
+                id="settings-new-password"
                 type="password"
-                required
                 value={newPass}
-                onChange={(e) => setNewPass(e.target.value)}
+                aria-invalid={Boolean(fieldErrors.newPass)}
+                aria-describedby={fieldErrors.newPass ? 'settings-new-password-error' : undefined}
+                onChange={(e) => updatePasswordField('newPass', e.target.value)}
                 placeholder="••••••••"
                 className="input-base text-sm"
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Confirm New Password
-              </label>
+            <FormField id="settings-confirm-password" label="Confirm New Password" error={fieldErrors.confirmPass} required>
               <input
+                id="settings-confirm-password"
                 type="password"
-                required
                 value={confirmPass}
-                onChange={(e) => setConfirmPass(e.target.value)}
+                aria-invalid={Boolean(fieldErrors.confirmPass)}
+                aria-describedby={fieldErrors.confirmPass ? 'settings-confirm-password-error' : undefined}
+                onChange={(e) => updatePasswordField('confirmPass', e.target.value)}
                 placeholder="••••••••"
                 className="input-base text-sm"
               />
-            </div>
+            </FormField>
 
             <button
               type="submit"
@@ -187,7 +193,7 @@ export const SettingsPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSavePreferences} className={isCompactRole ? 'space-y-3' : 'space-y-4'}>
+            <form onSubmit={handleSavePreferences} className={isCompactRole ? 'space-y-3' : 'space-y-4'} noValidate>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold text-slate-700">Email Status Updates</p>
@@ -244,101 +250,6 @@ export const SettingsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Section 3: Demonstration & Environment Controls ────────────── */}
-      <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${isCompactRole ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
-        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-          <Sparkles className="w-4 h-4 text-sky-600" />
-          <h2 className="text-sm font-bold text-slate-800">Environment & Demonstration Mode</h2>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-slate-800">
-                {isDemoMode ? 'Demo Mode: Active' : 'Production Mode: Finished Product'}
-              </h3>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                isDemoMode ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-              }`}>
-                {isDemoMode ? 'Demo Persona Switcher On' : 'Clean Portal Active'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {isDemoMode
-                ? 'Demo persona shortcuts and reset tools are currently enabled for presentations.'
-                : 'Demo shortcuts are hidden. The portal reflects the clean, finished university production experience.'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {isDemoMode ? (
-              <>
-                <button
-                  onClick={() => setDemoMode(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5" /> Exit Demo Mode
-                </button>
-                <button
-                  onClick={handleResetDemoData}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
-                  title="Restore pristine mock dataset"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Reset Data
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => setDemoMode(true)}
-                className="px-4 py-2 text-xs font-semibold rounded-xl btn-primary transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5" /> Enable Demo Mode
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Section 4: Sign Out & Active Session Management ─────────────── */}
-      <div className={`bg-white rounded-2xl border border-rose-100 shadow-sm ${isCompactRole ? 'p-4 space-y-3' : 'p-5 space-y-4'}`}>
-        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-          <Lock className="w-4 h-4 text-rose-600" />
-          <h2 className="text-sm font-bold text-slate-800">Sign Out & Session Management</h2>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            {currentUser.avatar ? (
-              <img src={resolveApiUrl(currentUser.avatar)} alt={currentUser.firstName} className="w-11 h-11 rounded-full object-cover border-2 border-slate-200 shadow-sm" />
-            ) : (
-              <div className="w-11 h-11 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-sm font-bold border-2 border-sky-200">{initials}</div>
-            )}
-            <div>
-              <p className="text-sm font-bold text-slate-800">
-                {currentUser.firstName} {currentUser.lastName}
-              </p>
-              <p className="text-xs text-slate-500">
-                {currentUser.email} • <span className="font-semibold text-sky-700">{ROLE_NAMES[currentRole]}</span>
-              </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                {currentUser.userType}{currentUser.department ? ` • ${currentUser.department}` : ''} • {currentUser.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-              </p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Active session on this browser
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            id="settings-logout-btn"
-            className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300 transition-all flex items-center gap-2 self-start sm:self-auto shadow-sm cursor-pointer"
-          >
-            <LogOut className="w-4 h-4 text-rose-600" />
-            <span>Sign Out / Log Out</span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

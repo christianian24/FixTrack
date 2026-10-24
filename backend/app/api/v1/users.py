@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.dependencies import get_current_user, require_roles
 from ...core.config import settings
 from ...db.session import get_db
+from ...models.notification import Notification
 from ...models.user import User
-from ...schemas.user import UserAdminUpdate, UserPublic, UserUpdate
+from ...schemas.user import HeartbeatResponse, UserAdminUpdate, UserPublic, UserUpdate
 from ...services.storage import save_upload
 
 router = APIRouter()
@@ -51,6 +54,16 @@ async def list_users(
 ):
     result = await db.execute(select(User).order_by(User.last_name))
     return [UserPublic.model_validate(u) for u in result.scalars()]
+
+
+@router.post("/me/heartbeat", response_model=HeartbeatResponse)
+async def heartbeat(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    current_user.last_seen = datetime.now(timezone.utc)
+    await db.flush()
+    return HeartbeatResponse(is_online=current_user.is_online)
 
 
 @router.get("/{user_id}", response_model=UserPublic)
@@ -169,3 +182,43 @@ async def update_user_avatar(
             old_path.unlink()
 
     return UserPublic.model_validate(user)
+
+
+@router.delete("/{user_id}", status_code=204)
+async def permanently_delete_user(
+    user_id: str,
+    current_user: Annotated[User, Depends(require_roles("ADMINISTRATOR"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    result = await db.execute(
+        select(User).where(User.id == user_id).with_for_update()
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Administrators cannot permanently delete their own account.",
+        )
+
+    notification = await db.execute(
+        select(Notification.id).where(Notification.user_id == user.id).limit(1)
+    )
+    if notification.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This account has notifications that must be retained and cannot be permanently deleted.",
+        )
+
+    try:
+        await db.delete(user)
+        await db.flush()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This account is referenced by protected records and cannot be permanently deleted.",
+        ) from exc
+
+    return Response(status_code=204)

@@ -7,7 +7,9 @@ export type ConcernStatus =
   | 'IN_PROGRESS'
   | 'WAITING_FOR_MATERIALS'
   | 'COMPLETED'
-  | 'CLOSED';
+  | 'VERIFIED'
+  | 'CLOSED'
+  | 'REJECTED';
 
 export type ConcernPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 

@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
+import { FormField } from '../../components/forms/FormField';
+import {
+  clearResolvedFieldError,
+  emailField,
+  mapApiError,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+  type FieldValidators,
+} from '../../lib/formValidation';
 import {
   LogIn,
   Shield,
@@ -29,57 +39,69 @@ const ROLE_CARD_STYLES: Record<string, { border: string; bg: string; iconBg: str
 };
 
 export const LoginPage: React.FC = () => {
-  const { login, demoUsers, isDemoMode, setDemoMode } = useAuth();
+  const { login, loginWithDemoAccount, demoAccounts } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
-  const [selectedDemoId, setSelectedDemoId] = useState<string>('usr_alex');
+
+  const validators: FieldValidators = {
+    email: emailField,
+    password: requiredField('Password'),
+  };
+
+  const updateField = (field: 'email' | 'password', value: string) => {
+    if (field === 'email') setEmail(value);
+    else setPassword(value);
+    setError(null);
+    setFieldErrors((current) =>
+      clearResolvedFieldError(current, field, value, validators[field]),
+    );
+  };
 
   const handleManualLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const errors = validateFields({ email, password }, validators);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setLoading(true);
 
     try {
-      const err = await login(email, password);
-      if (!err) {
-        navigate('/dashboard');
-      } else {
-        setError(err);
-      }
-    } catch {
-      setError('Please enter a valid school email address (e.g. name@school.edu).');
+      await login(email, password);
+      navigate('/dashboard');
+    } catch (loginError) {
+      const feedback = mapApiError(
+        loginError,
+        'Unable to sign in. Please check your credentials and try again.',
+        { knownFields: ['email', 'password'] },
+      );
+      setFieldErrors(feedback.fieldErrors);
+      setError(feedback.generalMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectDemo = (userId: string) => {
-    const user = demoUsers.find(u => u.id === userId);
-    if (user) {
-      setSelectedDemoId(userId);
-      setEmail(user.email);
-    }
-  };
-
   const handleQuickLogin = async (userId: string) => {
-    const user = demoUsers.find(u => u.id === userId);
-    if (user) {
-      setLoading(true);
-      try {
-        const err = await login(user.email, 'demo1234');
-        if (!err) {
-          navigate('/dashboard');
-        } else {
-          setError(err);
-        }
-      } finally {
-        setLoading(false);
-      }
+    setError(null);
+    setLoading(true);
+    try {
+      await loginWithDemoAccount(userId);
+      navigate('/dashboard');
+    } catch (loginError) {
+      setError(
+        mapApiError(loginError, 'Unable to start the demo session. Please try again.', {
+          knownFields: [],
+        })
+          .generalMessage,
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,23 +113,21 @@ export const LoginPage: React.FC = () => {
             Campus Facilities Portal
           </div>
           <h3 className="text-[1.8rem] sm:text-[2.15rem] font-bold text-slate-800 tracking-[-0.06em] leading-[1.08]">
-            {isDemoMode ? 'Sign in to your account' : 'Sign in to Campus Portal'}
+            Sign in to Campus Portal
           </h3>
           <p className="text-[0.8rem] text-slate-500 mt-2 leading-relaxed">
-            {isDemoMode
-              ? 'Select a test persona for instant review, or sign in with your email.'
-              : 'Enter your institutional school credentials to access the facility portal.'}
+            Choose an approved demo account for instant access, or sign in with your institutional credentials.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2">
+          <div role="alert" className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2">
             <Shield className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {isDemoMode && (
+        {demoAccounts.length > 0 && (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em]">
@@ -116,8 +136,7 @@ export const LoginPage: React.FC = () => {
               <span className="text-[11px] text-amber-600 font-medium">Demo matrix</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {demoUsers.map((user) => {
-                const isSelected = selectedDemoId === user.id;
+              {demoAccounts.map((user) => {
                 const style = ROLE_CARD_STYLES[user.role] || ROLE_CARD_STYLES['REPORTER'];
                 const RoleIcon = ROLE_ICONS[user.role] || Users;
                 return (
@@ -126,18 +145,15 @@ export const LoginPage: React.FC = () => {
                     type="button"
                     id={`persona-${user.id}`}
                     onClick={() => handleQuickLogin(user.id)}
-                    onMouseEnter={() => handleSelectDemo(user.id)}
-                    className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 group ${style.border} ${style.bg} ${
-                      isSelected ? 'ring-2 ring-sky-300 ring-offset-1' : ''
-                    } bg-white cursor-pointer`}
+                    disabled={loading}
+                    className={`p-3 rounded-2xl border text-left transition-all flex items-center gap-3 group ${style.border} ${style.bg} bg-white cursor-pointer disabled:opacity-60 disabled:cursor-wait`}
                   >
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${style.iconBg}`}>
                       <RoleIcon className={`w-4.5 h-4.5 ${style.iconColor}`} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800 truncate">
-                        {user.firstName} {user.lastName}
-                      </p>
+                      <p className="text-sm font-semibold text-slate-800 truncate">{user.name}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${style.badge}`}>
                         {style.badgeText}
                       </span>
@@ -158,42 +174,43 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleManualLogin} className="space-y-4" id="login-form">
-          <div className="space-y-2">
-            <label className="block text-[0.72rem] font-semibold text-slate-600 uppercase tracking-[0.14em]" htmlFor="login-email">
-              Institutional Email Address
-            </label>
+        <form onSubmit={handleManualLogin} className="space-y-4" id="login-form" noValidate>
+          <FormField
+            id="login-email"
+            label="Institutional Email Address"
+            error={fieldErrors.email}
+            required
+            className="space-y-2"
+            labelClassName="block text-[0.72rem] font-semibold text-slate-600 uppercase tracking-[0.14em]"
+          >
             <input
               id="login-email"
               type="email"
-              required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
+              onChange={(e) => updateField('email', e.target.value)}
               placeholder="alex.chen@school.edu"
               className="input-base text-base h-12 rounded-xl border-slate-200 bg-white shadow-[0_1px_0_rgba(15,23,42,0.02)] focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-[0.72rem] font-semibold text-slate-600 uppercase tracking-[0.14em]" htmlFor="login-password">
-                Password
-              </label>
-              {isDemoMode ? (
-                <span className="text-[11px] text-slate-400">Any password works in demo</span>
-              ) : (
-                <span className="text-xs text-sky-600 hover:text-sky-700 cursor-pointer font-medium">
-                  Forgot password?
-                </span>
-              )}
-            </div>
+          <FormField
+            id="login-password"
+            label="Password"
+            error={fieldErrors.password}
+            required
+            className="space-y-2"
+            labelClassName="block text-[0.72rem] font-semibold text-slate-600 uppercase tracking-[0.14em]"
+          >
             <div className="relative">
               <input
                 id="login-password"
                 type={showPassword ? 'text' : 'password'}
-                required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={Boolean(fieldErrors.password)}
+                aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
+                onChange={(e) => updateField('password', e.target.value)}
                 placeholder="••••••••••••••"
                 className="input-base text-base h-12 rounded-xl border-slate-200 bg-white pr-11 shadow-[0_1px_0_rgba(15,23,42,0.02)] focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
               />
@@ -206,7 +223,7 @@ export const LoginPage: React.FC = () => {
                 <Eye className="w-4 h-4" />
               </button>
             </div>
-          </div>
+          </FormField>
 
           <div className="flex items-center justify-between text-sm pt-1">
             <div className="flex items-center gap-2">
@@ -237,6 +254,11 @@ export const LoginPage: React.FC = () => {
               </>
             )}
           </button>
+          <div className="flex justify-center">
+            <span className="text-xs text-sky-600 hover:text-sky-700 cursor-pointer font-medium">
+              Forgot password?
+            </span>
+          </div>
         </form>
 
         <div className="pt-4 mt-4 border-t border-slate-100">
@@ -249,7 +271,7 @@ export const LoginPage: React.FC = () => {
             Need help? <a href="mailto:support@fixtrack.edu" className="ml-1 text-sky-600 hover:text-sky-700 font-medium">Contact IT Support</a>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
+          <div className="flex items-center justify-center gap-3 text-[11px] text-slate-500">
             <div>
               Don&apos;t have an account?{' '}
               <Link to="/register" className="text-sky-600 hover:text-sky-700 font-semibold hover:underline">
@@ -257,23 +279,6 @@ export const LoginPage: React.FC = () => {
               </Link>
             </div>
 
-            <div>
-              {isDemoMode ? (
-                <button
-                  onClick={() => setDemoMode(false)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  View clean finished portal
-                </button>
-              ) : (
-                <button
-                  onClick={() => setDemoMode(true)}
-                  className="text-sky-600 hover:text-sky-700 font-medium transition-colors"
-                >
-                  Enable Demo Mode
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </div>

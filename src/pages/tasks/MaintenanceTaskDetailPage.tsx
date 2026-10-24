@@ -5,9 +5,18 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { PhotoGallery } from '../../components/common/PhotoGallery';
 import { PhotoUploadZone } from '../../components/forms/PhotoUploadZone';
+import { FormField } from '../../components/forms/FormField';
 import { TimelineView } from '../../components/concerns/TimelineView';
 import { Modal } from '../../components/common/Modal';
 import { formatBuildingLabel, formatConcernRoom } from '../../lib/locationFormatting';
+import {
+  clearResolvedFieldError,
+  mapApiError,
+  minimumLengthField,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+} from '../../lib/formValidation';
 import { ArrowLeft, Wrench, CheckCircle, Package, PlusCircle } from 'lucide-react';
 
 const MetaChip: React.FC<{ label: string; value: string }> = ({ label, value }) => (
@@ -40,12 +49,23 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
   const [progressModalOpen, setProgressModalOpen]   = useState(false);
   const [completionSubmitting, setCompletionSubmitting] = useState(false);
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [progressErrors, setProgressErrors] = useState<FieldErrors>({});
+  const [materialsErrors, setMaterialsErrors] = useState<FieldErrors>({});
+  const [completionFieldErrors, setCompletionFieldErrors] = useState<FieldErrors>({});
 
   const [progressNote, setProgressNote] = useState('');
   const [materialsNote, setMaterialsNote] = useState('Awaiting replacement hardware delivery from supplier.');
   const [completionNotes, setCompletionNotes] = useState('Replaced damaged components, tested operation, and verified area is clean and safe.');
   const [completionPhotoFile, setCompletionPhotoFile] = useState<File | null>(null);
   const [completionPhotoPreviews, setCompletionPhotoPreviews] = useState<string[]>([]);
+  const progressValidator = requiredField('Work notes');
+  const materialsValidator = requiredField('Parts or supplier details');
+  const completionValidators = {
+    notes: (value: unknown) =>
+      requiredField('Resolution summary')(value, {}) ??
+      minimumLengthField(value, 'Resolution summary', 10),
+    evidence: () => completionPhotoFile ? null : 'Select a completion evidence file before submitting.',
+  };
 
   if (!task) {
     return (
@@ -63,7 +83,9 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
 
   const handleProgressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!progressNote) return;
+    const errors = validateFields({ progressNote }, { progressNote: progressValidator });
+    setProgressErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     updateConcernStatus(task.id, task.status, progressNote, undefined, currentUser);
     setProgressNote('');
     setProgressModalOpen(false);
@@ -71,20 +93,22 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
 
   const handleMaterialsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateFields({ materialsNote }, { materialsNote: materialsValidator });
+    setMaterialsErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     updateConcernStatus(task.id, 'WAITING_FOR_MATERIALS', materialsNote, undefined, currentUser);
     setMaterialsModalOpen(false);
   };
 
   const handleCompletionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (completionNotes.trim().length < 10) {
-      setCompletionError('Resolution notes must be at least 10 characters.');
-      return;
-    }
-    if (!completionPhotoFile) {
-      setCompletionError('Select a completion evidence file before submitting.');
-      return;
-    }
+    const errors = validateFields(
+      { notes: completionNotes, evidence: completionPhotoFile },
+      completionValidators,
+    );
+    setCompletionFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    if (!completionPhotoFile) return;
     setCompletionError(null);
     setCompletionSubmitting(true);
     let uploadedPhotoId: string | null = null;
@@ -103,7 +127,12 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
           // Keep the original completion error visible if compensation fails.
         }
       }
-      setCompletionError(error instanceof Error ? error.message : 'Completion failed. Please try again.');
+      const feedback = mapApiError(error, 'Completion failed. Please try again.', {
+        knownFields: ['notes', 'evidence'],
+        aliases: { repair_notes: 'notes', resolution_notes: 'notes' },
+      });
+      setCompletionFieldErrors(feedback.fieldErrors);
+      setCompletionError(feedback.generalMessage);
     } finally {
       setCompletionSubmitting(false);
     }
@@ -208,11 +237,24 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
 
       {/* Modal 1: Progress Note */}
       <Modal isOpen={progressModalOpen} onClose={() => setProgressModalOpen(false)} title="Log Work Note">
-        <form onSubmit={handleProgressSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Work Notes / Actions Performed</label>
-            <textarea rows={3} required value={progressNote} onChange={(e) => setProgressNote(e.target.value)} placeholder="Detail diagnostics, parts dismantled, or repairs performed…" className="input-base" />
-          </div>
+        <form onSubmit={handleProgressSubmit} className="space-y-4" noValidate>
+          <FormField id="task-progress-note" label="Work Notes / Actions Performed" error={progressErrors.progressNote} required>
+            <textarea
+              id="task-progress-note"
+              rows={3}
+              value={progressNote}
+              aria-invalid={Boolean(progressErrors.progressNote)}
+              aria-describedby={progressErrors.progressNote ? 'task-progress-note-error' : undefined}
+              onChange={(e) => {
+                setProgressNote(e.target.value);
+                setProgressErrors((errors) =>
+                  clearResolvedFieldError(errors, 'progressNote', e.target.value, progressValidator),
+                );
+              }}
+              placeholder="Detail diagnostics, parts dismantled, or repairs performed…"
+              className="input-base"
+            />
+          </FormField>
           <div className="flex justify-end gap-2 pt-2">
             <ModalBtn onClick={() => setProgressModalOpen(false)}>Cancel</ModalBtn>
             <ModalBtn type="submit" color={isTechnician ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-sky-500 hover:bg-sky-600 text-white'}>Save Note</ModalBtn>
@@ -222,11 +264,23 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
 
       {/* Modal 2: Materials */}
       <Modal isOpen={materialsModalOpen} onClose={() => setMaterialsModalOpen(false)} title="Hold for Replacement Parts">
-        <form onSubmit={handleMaterialsSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Required Parts / Supplier Details</label>
-            <textarea rows={3} required value={materialsNote} onChange={(e) => setMaterialsNote(e.target.value)} className="input-base" />
-          </div>
+        <form onSubmit={handleMaterialsSubmit} className="space-y-4" noValidate>
+          <FormField id="task-materials-note" label="Required Parts / Supplier Details" error={materialsErrors.materialsNote} required>
+            <textarea
+              id="task-materials-note"
+              rows={3}
+              value={materialsNote}
+              aria-invalid={Boolean(materialsErrors.materialsNote)}
+              aria-describedby={materialsErrors.materialsNote ? 'task-materials-note-error' : undefined}
+              onChange={(e) => {
+                setMaterialsNote(e.target.value);
+                setMaterialsErrors((errors) =>
+                  clearResolvedFieldError(errors, 'materialsNote', e.target.value, materialsValidator),
+                );
+              }}
+              className="input-base"
+            />
+          </FormField>
           <div className="flex justify-end gap-2 pt-2">
             <ModalBtn onClick={() => setMaterialsModalOpen(false)}>Cancel</ModalBtn>
             <ModalBtn type="submit" color="bg-amber-500 hover:bg-amber-600 text-white">Mark Waiting for Parts</ModalBtn>
@@ -236,15 +290,29 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
 
       {/* Modal 3: Complete */}
       <Modal isOpen={completeModalOpen} onClose={() => setCompleteModalOpen(false)} title="Complete Work Order">
-        <form onSubmit={handleCompletionSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Resolution Summary *</label>
-            <textarea rows={3} required value={completionNotes} onChange={(e) => setCompletionNotes(e.target.value)} className="input-base" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Completion Evidence *</label>
+        <form onSubmit={handleCompletionSubmit} className="space-y-4" noValidate>
+          <FormField id="task-completion-notes" label="Resolution Summary" error={completionFieldErrors.notes} required>
+            <textarea
+              id="task-completion-notes"
+              rows={3}
+              value={completionNotes}
+              aria-invalid={Boolean(completionFieldErrors.notes)}
+              aria-describedby={completionFieldErrors.notes ? 'task-completion-notes-error' : undefined}
+              onChange={(e) => {
+                setCompletionNotes(e.target.value);
+                setCompletionFieldErrors((errors) =>
+                  clearResolvedFieldError(errors, 'notes', e.target.value, completionValidators.notes),
+                );
+              }}
+              className="input-base"
+            />
+          </FormField>
+          <FormField id="task-completion-evidence" label="Completion Evidence" error={completionFieldErrors.evidence} required>
             <p className="text-xs text-slate-500 mb-2">Upload a photo of the completed repair.</p>
             <PhotoUploadZone
+              inputId="task-completion-evidence"
+              inputInvalid={Boolean(completionFieldErrors.evidence)}
+              inputDescribedBy={completionFieldErrors.evidence ? 'task-completion-evidence-error' : undefined}
               photos={completionPhotoPreviews}
               maxPhotos={1}
               onChange={(photos) => {
@@ -253,11 +321,24 @@ export const MaintenanceTaskDetailPage: React.FC = () => {
               }}
               onFiles={(files) => {
                 setCompletionPhotoFile(files[0] ?? null);
+                setCompletionFieldErrors((errors) =>
+                  clearResolvedFieldError(
+                    errors,
+                    'evidence',
+                    files[0],
+                    () => files[0] ? null : 'Select a completion evidence file before submitting.',
+                  ),
+                );
                 setCompletionError(null);
               }}
+              onValidationError={(message) => {
+                if (message) {
+                  setCompletionFieldErrors((errors) => ({ ...errors, evidence: message }));
+                }
+              }}
             />
-          </div>
-          {completionError && <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">{completionError}</p>}
+          </FormField>
+          {completionError && <p role="alert" className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">{completionError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <ModalBtn onClick={() => setCompleteModalOpen(false)}>Cancel</ModalBtn>
             <ModalBtn type="submit" disabled={completionSubmitting} color={isTechnician ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}>{completionSubmitting ? 'Submitting...' : 'Submit for Verification'}</ModalBtn>

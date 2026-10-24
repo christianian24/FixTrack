@@ -4,6 +4,16 @@ import { useAuth } from '../../store/AuthContext';
 import { usersApi } from '../../services/api/adminApi';
 import { resolveApiUrl } from '../../services/api/client';
 import { ROLE_NAMES } from '../../lib/permissions';
+import { FormField } from '../../components/forms/FormField';
+import {
+  clearResolvedFieldError,
+  fileTypeField,
+  mapApiError,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+  type FieldValidators,
+} from '../../lib/formValidation';
 import {
   Mail,
   Shield,
@@ -14,6 +24,8 @@ import {
   ArrowRight,
   School,
 } from 'lucide-react';
+
+const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 export const ProfilePage: React.FC = () => {
   const { currentUser, currentRole, refreshCurrentUser } = useAuth();
@@ -53,6 +65,23 @@ export const ProfilePage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const validators: FieldValidators = {
+    firstName: requiredField('First name'),
+    lastName: requiredField('Last name'),
+  };
+
+  const updateName = (field: 'firstName' | 'lastName', value: string) => {
+    if (field === 'firstName') setFirstName(value);
+    else setLastName(value);
+    const values = {
+      firstName: field === 'firstName' ? value : firstName,
+      lastName: field === 'lastName' ? value : lastName,
+    };
+    setFieldErrors((errors) =>
+      clearResolvedFieldError(errors, field, value, validators[field], values),
+    );
+  };
 
   useEffect(() => {
     setFirstName(currentUser.firstName);
@@ -70,6 +99,9 @@ export const ProfilePage: React.FC = () => {
     e.preventDefault();
     setSaveError(null);
     setSavedSuccess(false);
+    const errors = validateFields({ firstName, lastName }, validators);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0 || fieldErrors.avatar) return;
     setSaving(true);
     try {
       await usersApi.updateMe({
@@ -85,7 +117,12 @@ export const ProfilePage: React.FC = () => {
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2500);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Profile update failed.');
+      const feedback = mapApiError(error, 'Profile update failed. Please try again.', {
+        knownFields: ['firstName', 'lastName', 'phone', 'department', 'avatar'],
+        aliases: { file: 'avatar', avatar_file: 'avatar' },
+      });
+      setFieldErrors(feedback.fieldErrors);
+      setSaveError(feedback.generalMessage);
     } finally {
       setSaving(false);
     }
@@ -120,20 +157,41 @@ export const ProfilePage: React.FC = () => {
               )}
               <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white" />
             </div>
-            <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${isAdminRole ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300' : isSupervisorRole ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300' : isTechnicianRole ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300' : 'bg-slate-50 border-slate-200 text-sky-700 hover:bg-sky-50 hover:border-sky-200'}`}>
-              <Camera className="w-3.5 h-3.5" /> Change Photo
+            <FormField
+              id="profile-photo-input"
+              label={<><Camera className="w-3.5 h-3.5" /> Change Photo</>}
+              error={fieldErrors.avatar}
+              labelClassName={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${isAdminRole ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300' : isSupervisorRole ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300' : isTechnicianRole ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300' : 'bg-slate-50 border-slate-200 text-sky-700 hover:bg-sky-50 hover:border-sky-200'}`}
+            >
               <input
+                id="profile-photo-input"
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
+                  if (!file) return;
+                  const fileError = fileTypeField(file, PROFILE_IMAGE_TYPES, 'Profile photo');
+                  if (fileError) {
+                    setSelectedPhoto(null);
+                    setPhotoPreview(null);
+                    setFieldErrors((errors) => ({ ...errors, avatar: fileError }));
+                    e.target.value = '';
+                    return;
+                  }
                   setSelectedPhoto(file);
+                  setFieldErrors((errors) => {
+                    const next = { ...errors };
+                    delete next.avatar;
+                    return next;
+                  });
                   setAvatarFailed(false);
-                  if (file) setPhotoPreview(URL.createObjectURL(file));
+                  setPhotoPreview(URL.createObjectURL(file));
                 }}
+                accept={PROFILE_IMAGE_TYPES.join(',')}
+                aria-invalid={Boolean(fieldErrors.avatar)}
+                aria-describedby={fieldErrors.avatar ? 'profile-photo-input-error' : undefined}
               />
-            </label>
+            </FormField>
           </div>
 
           <div className="min-w-0 flex-1 space-y-3">
@@ -169,14 +227,24 @@ export const ProfilePage: React.FC = () => {
           </div>
           {savedSuccess && <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600" /> Changes saved successfully.</div>}
           {saveError && <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{saveError}</div>}
-          <form onSubmit={handleSaveProfile} className="space-y-4">
+          <form onSubmit={handleSaveProfile} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">First Name</label><input type="text" required maxLength={80} value={firstName} onChange={(e) => setFirstName(e.target.value)} className="input-base text-sm h-11" /></div>
-              <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">Last Name</label><input type="text" required maxLength={80} value={lastName} onChange={(e) => setLastName(e.target.value)} className="input-base text-sm h-11" /></div>
+              <FormField id="profile-first-name" label="First Name" error={fieldErrors.firstName} required>
+                <input id="profile-first-name" type="text" maxLength={80} value={firstName} aria-invalid={Boolean(fieldErrors.firstName)} aria-describedby={fieldErrors.firstName ? 'profile-first-name-error' : undefined} onChange={(e) => updateName('firstName', e.target.value)} className="input-base text-sm h-11" />
+              </FormField>
+              <FormField id="profile-last-name" label="Last Name" error={fieldErrors.lastName} required>
+                <input id="profile-last-name" type="text" maxLength={80} value={lastName} aria-invalid={Boolean(fieldErrors.lastName)} aria-describedby={fieldErrors.lastName ? 'profile-last-name-error' : undefined} onChange={(e) => updateName('lastName', e.target.value)} className="input-base text-sm h-11" />
+              </FormField>
             </div>
-            <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">School Email</label><input type="email" disabled value={currentUser.email} className="input-base text-sm h-11 bg-slate-50 text-slate-500 cursor-not-allowed" /></div>
-            <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">Phone Number</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="input-base text-sm h-11" /></div>
-            <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">Department / Division</label><input type="text" value={department} onChange={(e) => setDepartment(e.target.value)} className="input-base text-sm h-11" /></div>
+            <FormField id="profile-email" label="School Email">
+              <input id="profile-email" type="email" disabled value={currentUser.email} className="input-base text-sm h-11 bg-slate-50 text-slate-500 cursor-not-allowed" />
+            </FormField>
+            <FormField id="profile-phone" label="Phone Number" error={fieldErrors.phone}>
+              <input id="profile-phone" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setFieldErrors((current) => { const next = { ...current }; delete next.phone; return next; }); }} aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? 'profile-phone-error' : undefined} className="input-base text-sm h-11" />
+            </FormField>
+            <FormField id="profile-department" label="Department / Division" error={fieldErrors.department}>
+              <input id="profile-department" type="text" value={department} onChange={(e) => { setDepartment(e.target.value); setFieldErrors((current) => { const next = { ...current }; delete next.department; return next; }); }} aria-invalid={Boolean(fieldErrors.department)} aria-describedby={fieldErrors.department ? 'profile-department-error' : undefined} className="input-base text-sm h-11" />
+            </FormField>
             <button type="submit" disabled={saving} className={primaryActionClasses}>{saving ? 'Saving Changes...' : 'Save Changes'}</button>
           </form>
         </section>

@@ -42,6 +42,7 @@ export interface UserRead {
   phone: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  is_online: boolean;
   status: string;
   created_at: string;
 }
@@ -118,6 +119,9 @@ export const usersApi = {
   list(): Promise<UserRead[]> {
     return apiClient.get<UserRead[]>('/users');
   },
+  heartbeat(): Promise<{ is_online: boolean }> {
+    return apiClient.post<{ is_online: boolean }>('/users/me/heartbeat');
+  },
   get(id: string): Promise<UserRead> {
     return apiClient.get<UserRead>(`/users/${id}`);
   },
@@ -126,6 +130,9 @@ export const usersApi = {
   },
   updateManaged(id: string, data: AdminUserUpdateRequest): Promise<UserRead> {
     return apiClient.patch<UserRead>(`/users/${id}`, data);
+  },
+  permanentlyDelete(id: string): Promise<void> {
+    return apiClient.delete(`/users/${id}`);
   },
   uploadManagedAvatar(id: string, file: File): Promise<UserRead> {
     const formData = new FormData();

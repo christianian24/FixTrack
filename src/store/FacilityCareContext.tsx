@@ -6,14 +6,8 @@ import { FacilityCategory } from '../types/category';
 import { User } from '../types/user';
 import { AppNotification } from '../types/notification';
 
-import { mockConcerns } from '../data/mockConcerns';
-import { mockBuildings } from '../data/mockBuildings';
-import { mockRooms } from '../data/mockRooms';
-import { mockCategories } from '../data/mockCategories';
-import { mockUsers } from '../data/mockUsers';
-import { mockNotifications } from '../data/mockNotifications';
 import { buildingsApi, roomsApi, categoriesApi, usersApi } from '../services/api/adminApi';
-import { concernsApi, ConcernRead, ConcernPhoto } from '../services/api/concernsApi';
+import { concernsApi, ArchivedConcernRead, ConcernRead, ConcernPhoto } from '../services/api/concernsApi';
 import { notificationsApi } from '../services/api/notificationsApi';
 import { resolveApiUrl } from '../services/api/client';
 import { useAuth } from './AuthContext';
@@ -64,6 +58,7 @@ type BackendUser = {
   avatar_url?: string | null;
   status?: string;
   is_active?: boolean;
+  is_online?: boolean;
   created_at?: string;
 };
 
@@ -129,6 +124,7 @@ const mapUser = (item: BackendUser): User => ({
   avatar: item.avatar_url ?? undefined,
   department: item.department ?? undefined,
   status: backendStringToStatus(item.is_active ?? item.status),
+  isOnline: item.is_online ?? false,
   createdAt: item.created_at ?? new Date().toISOString(),
   updatedAt: item.created_at ?? new Date().toISOString(),
 });
@@ -218,10 +214,6 @@ const mapConcern = (
 };
 };
 
-const isOfflineMode =
-  import.meta.env.VITE_OFFLINE_DEMO === 'true' ||
-  import.meta.env.MODE === 'demo';
-
 interface FacilityCareContextType {
   concerns: Concern[];
   buildings: Building[];
@@ -235,6 +227,10 @@ interface FacilityCareContextType {
   createConcern: (concernData: Omit<Concern, 'id' | 'reportNumber' | 'createdAt' | 'updatedAt' | 'timeline'>) => Promise<Concern>;
   uploadConcernPhoto: (concernId: string, file: File, isCompletionPhoto?: boolean) => Promise<ConcernPhoto>;
   updateConcern: (id: string, updates: Partial<Concern>) => void;
+  archiveConcern: (concernId: string) => Promise<void>;
+  getArchivedConcerns: () => Promise<ArchivedConcernRead[]>;
+  restoreConcern: (concernId: string) => Promise<void>;
+  permanentlyDeleteConcern: (concernId: string) => Promise<void>;
   assignConcern: (concernId: string, personnelId: string, scheduledDate?: string, notes?: string, actorUser?: User) => Promise<void>;
   updateConcernStatus: (concernId: string, newStatus: ConcernStatus, notes?: string, photoUrl?: string, actorUser?: User) => Promise<void>;
   deleteConcernPhoto: (concernId: string, photoId: string) => Promise<void>;
@@ -262,63 +258,29 @@ interface FacilityCareContextType {
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
 
-  // Reset to default seeds
-  resetDemoData: () => void;
 }
 
 const FacilityCareContext = createContext<FacilityCareContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
-  CONCERNS: 'facilitycare_concerns_v1',
-  BUILDINGS: 'facilitycare_buildings_v1',
-  ROOMS: 'facilitycare_rooms_v1',
-  CATEGORIES: 'facilitycare_categories_v1',
-  USERS: 'facilitycare_users_v1',
-  NOTIFICATIONS: 'facilitycare_notifications_v1',
-};
-
-export const FacilityCareProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const FacilityCareStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    if (isOfflineMode) return;
-    Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
-  }, []);
-
-  const [concerns, setConcerns] = useState<Concern[]>(() => {
-    return isOfflineMode ? mockConcerns : [];
-  });
-
-  const [buildings, setBuildings] = useState<Building[]>(() => {
-    return isOfflineMode ? mockBuildings : [];
-  });
-
-  const [rooms, setRooms] = useState<Room[]>(() => {
-    return isOfflineMode ? mockRooms : [];
-  });
-
-  const [categories, setCategories] = useState<FacilityCategory[]>(() => {
-    return isOfflineMode ? mockCategories : [];
-  });
-
-  const [users, setUsers] = useState<User[]>(() => {
-    return isOfflineMode ? mockUsers : [];
-  });
-
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    return isOfflineMode ? mockNotifications : [];
-  });
+  const [concerns, setConcerns] = useState<Concern[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [categories, setCategories] = useState<FacilityCategory[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [notificationError, setNotificationError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOfflineMode && !isAuthenticated) {
+    if (!isAuthenticated) {
       setNotifications([]);
       setNotificationError(null);
     }
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (isOfflineMode || !isAuthenticated) return;
+    if (!isAuthenticated) return;
 
     let cancelled = false;
     setNotifications([]);
@@ -392,43 +354,33 @@ export const FacilityCareProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, [currentUser, isAuthenticated]);
 
-  // Persist to localStorage
   useEffect(() => {
-    if (!isOfflineMode) return;
-    localStorage.setItem(STORAGE_KEYS.CONCERNS, JSON.stringify(concerns));
-  }, [concerns]);
+    if (
+      !isAuthenticated ||
+      !['ADMINISTRATOR', 'MAINTENANCE_SUPERVISOR'].includes(currentUser.role)
+    ) {
+      return;
+    }
 
-  useEffect(() => {
-    if (!isOfflineMode) return;
-    localStorage.setItem(STORAGE_KEYS.BUILDINGS, JSON.stringify(buildings));
-  }, [buildings]);
+    let cancelled = false;
+    const refreshUsers = async () => {
+      try {
+        const nextUsers = await usersApi.list();
+        if (!cancelled) setUsers(nextUsers.map(mapUser));
+      } catch (error) {
+        if (!cancelled) console.warn('Unable to refresh user presence.', error);
+      }
+    };
+    const interval = window.setInterval(() => void refreshUsers(), 15_000);
 
-  useEffect(() => {
-    if (!isOfflineMode) return;
-    localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(rooms));
-  }, [rooms]);
-
-  useEffect(() => {
-    if (!isOfflineMode) return;
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
-  }, [categories]);
-
-  useEffect(() => {
-    if (!isOfflineMode) return;
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    if (!isOfflineMode) return;
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
-  }, [notifications]);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [currentUser.role, isAuthenticated]);
 
   // Actions
   const createConcern = async (data: Omit<Concern, 'id' | 'reportNumber' | 'createdAt' | 'updatedAt' | 'timeline'>): Promise<Concern> => {
-    if (isOfflineMode) {
-      throw new Error('Concern creation requires the connected local backend.');
-    }
-
     const response = await concernsApi.create({
       title: data.title,
       description: data.description,
@@ -492,6 +444,27 @@ export const FacilityCareProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setConcerns(prev =>
       prev.map(c => (c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c))
     );
+  };
+
+  const archiveConcern = async (concernId: string): Promise<void> => {
+    await concernsApi.archive(concernId);
+    setConcerns((prev) => prev.filter((concern) => concern.id !== concernId));
+  };
+
+  const getArchivedConcerns = (): Promise<ArchivedConcernRead[]> => concernsApi.listArchived();
+
+  const restoreConcern = async (concernId: string): Promise<void> => {
+    const response = await concernsApi.restore(concernId);
+    const restored = mapConcern(response, buildings, rooms, categories, users, currentUser);
+    setConcerns((prev) => [
+      ...prev.filter((concern) => concern.id !== restored.id),
+      restored,
+    ]);
+  };
+
+  const permanentlyDeleteConcern = async (concernId: string): Promise<void> => {
+    await concernsApi.permanentlyDelete(concernId);
+    setConcerns((prev) => prev.filter((concern) => concern.id !== concernId));
   };
 
   const assignConcern = async (
@@ -629,89 +602,46 @@ export const FacilityCareProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const updateUser = async (id: string, updates: Partial<User>) => {
-    if (!isOfflineMode) {
-      const response = await usersApi.updateManaged(id, {
-        first_name: updates.firstName,
-        last_name: updates.lastName,
-        phone: updates.phone,
-        role: updates.role,
-        user_type: updates.userType,
-        department: updates.department,
-        is_active: updates.status ? updates.status === 'ACTIVE' : undefined,
-      });
-      setUsers((prev) => prev.map((user) => user.id === id ? mapUser(response) : user));
-      return;
-    }
-    setUsers(prev =>
-      prev.map(u => (u.id === id ? { ...u, ...updates, updatedAt: new Date().toISOString() } : u))
-    );
+    const response = await usersApi.updateManaged(id, {
+      first_name: updates.firstName,
+      last_name: updates.lastName,
+      phone: updates.phone,
+      role: updates.role,
+      user_type: updates.userType,
+      department: updates.department,
+      is_active: updates.status ? updates.status === 'ACTIVE' : undefined,
+    });
+    setUsers((prev) => prev.map((user) => user.id === id ? mapUser(response) : user));
   };
 
   const toggleUserStatus = async (id: string) => {
-    if (!isOfflineMode) {
-      const target = users.find((user) => user.id === id);
-      if (!target) return;
-      const response = await usersApi.updateManaged(id, { is_active: target.status !== 'ACTIVE' });
-      setUsers((prev) => prev.map((user) => user.id === id ? mapUser(response) : user));
-      return;
-    }
-    setUsers(prev =>
-      prev.map(u =>
-        u.id === id
-          ? { ...u, status: u.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE', updatedAt: new Date().toISOString() }
-          : u
-      )
-    );
+    const target = users.find((user) => user.id === id);
+    if (!target) return;
+    const response = await usersApi.updateManaged(id, { is_active: target.status !== 'ACTIVE' });
+    setUsers((prev) => prev.map((user) => user.id === id ? mapUser(response) : user));
   };
 
   // Notification Actions
   const markNotificationAsRead = async (id: string) => {
-    if (!isOfflineMode) {
-      try {
-        const updated = await notificationsApi.markRead(id);
-        setNotifications(prev => prev.map(n => n.id === id ? mapNotification(updated) : n));
-        setNotificationError(null);
-      } catch {
-        const message = "We couldn't update this notification. Please try again.";
-        setNotificationError(message);
-      }
-      return;
+    try {
+      const updated = await notificationsApi.markRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? mapNotification(updated) : n));
+      setNotificationError(null);
+    } catch {
+      const message = "We couldn't update this notification. Please try again.";
+      setNotificationError(message);
     }
-    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
   };
 
   const markAllNotificationsAsRead = async () => {
-    if (!isOfflineMode) {
-      try {
-        await notificationsApi.markAllRead();
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-        setNotificationError(null);
-      } catch {
-        const message = "We couldn't update this notification. Please try again.";
-        setNotificationError(message);
-      }
-      return;
+    try {
+      await notificationsApi.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setNotificationError(null);
+    } catch {
+      const message = "We couldn't update this notification. Please try again.";
+      setNotificationError(message);
     }
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  // Reset Demo Data
-  const resetDemoData = () => {
-    if (!isOfflineMode) return;
-
-    localStorage.removeItem(STORAGE_KEYS.CONCERNS);
-    localStorage.removeItem(STORAGE_KEYS.BUILDINGS);
-    localStorage.removeItem(STORAGE_KEYS.ROOMS);
-    localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
-    localStorage.removeItem(STORAGE_KEYS.USERS);
-    localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
-
-    setConcerns(mockConcerns);
-    setBuildings(mockBuildings);
-    setRooms(mockRooms);
-    setCategories(mockCategories);
-    setUsers(mockUsers);
-    setNotifications(mockNotifications);
   };
 
   return (
@@ -727,6 +657,10 @@ export const FacilityCareProvider: React.FC<{ children: React.ReactNode }> = ({ 
         createConcern,
         uploadConcernPhoto,
         updateConcern,
+        archiveConcern,
+        getArchivedConcerns,
+        restoreConcern,
+        permanentlyDeleteConcern,
         assignConcern,
         updateConcernStatus,
         deleteConcernPhoto,
@@ -746,12 +680,15 @@ export const FacilityCareProvider: React.FC<{ children: React.ReactNode }> = ({ 
         toggleUserStatus,
         markNotificationAsRead,
         markAllNotificationsAsRead,
-        resetDemoData
       }}
     >
       {children}
     </FacilityCareContext.Provider>
   );
+};
+
+export const FacilityCareProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return <FacilityCareStateProvider>{children}</FacilityCareStateProvider>;
 };
 
 export const useFacilityCare = (): FacilityCareContextType => {

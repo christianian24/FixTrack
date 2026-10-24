@@ -3,6 +3,15 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { Room, RoomType } from '../../types/room';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { FormField } from '../../components/forms/FormField';
+import {
+  clearResolvedFieldError,
+  numberField,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+  type FieldValidators,
+} from '../../lib/formValidation';
 import {
   DoorOpen,
   Search,
@@ -31,6 +40,22 @@ export const RoomsPage: React.FC = () => {
     capacity: 40,
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE'
   });
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const validators: FieldValidators = {
+    buildingId: requiredField('Building'),
+    name: requiredField('Room name'),
+    code: requiredField('Room code'),
+    floor: (value) => numberField(value, 'Floor', 1, 15),
+    capacity: (value) => numberField(value, 'Capacity', 0, 500),
+  };
+
+  const updateField = (field: keyof typeof formData, value: string | number) => {
+    const next = { ...formData, [field]: value };
+    setFormData(next);
+    setFieldErrors((errors) =>
+      clearResolvedFieldError(errors, field, value, validators[field] ?? (() => null), next),
+    );
+  };
 
   const filteredRooms = rooms.filter(r => {
     const matchesSearch =
@@ -54,6 +79,7 @@ export const RoomsPage: React.FC = () => {
       capacity: 40,
       status: 'ACTIVE'
     });
+    setFieldErrors({});
     setModalOpen(true);
   };
 
@@ -68,11 +94,15 @@ export const RoomsPage: React.FC = () => {
       capacity: r.capacity || 30,
       status: r.status
     });
+    setFieldErrors({});
     setModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateFields(formData, validators);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     const targetBld = buildings.find(b => b.id === formData.buildingId);
     const buildingName = targetBld?.name || 'Campus Building';
 
@@ -233,71 +263,66 @@ export const RoomsPage: React.FC = () => {
         onClose={() => setModalOpen(false)}
         title={editingRoom ? 'Edit Room Record' : 'Register New Campus Room'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-              Associated Building
-            </label>
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <FormField id="room-building" label="Associated Building" error={fieldErrors.buildingId} required>
             <select
+              id="room-building"
               value={formData.buildingId}
-              onChange={(e) => setFormData({ ...formData, buildingId: e.target.value })}
+              aria-invalid={Boolean(fieldErrors.buildingId)}
+              aria-describedby={fieldErrors.buildingId ? 'room-building-error' : undefined}
+              onChange={(e) => updateField('buildingId', e.target.value)}
               className="select-base text-sm"
             >
               {buildings.map(b => (
                 <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
               ))}
             </select>
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Room Name
-              </label>
+            <FormField id="room-name" label="Room Name" error={fieldErrors.name} required>
               <input
+                id="room-name"
                 type="text"
-                required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                aria-invalid={Boolean(fieldErrors.name)}
+                aria-describedby={fieldErrors.name ? 'room-name-error' : undefined}
+                onChange={(e) => updateField('name', e.target.value)}
                 placeholder="e.g. Physics Lab 102"
                 className="input-base text-sm"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Room Code
-              </label>
+            </FormField>
+            <FormField id="room-code" label="Room Code" error={fieldErrors.code} required>
               <input
+                id="room-code"
                 type="text"
-                required
                 value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                aria-invalid={Boolean(fieldErrors.code)}
+                aria-describedby={fieldErrors.code ? 'room-code-error' : undefined}
+                onChange={(e) => updateField('code', e.target.value.toUpperCase())}
                 placeholder="e.g. SCI-102"
                 className="input-base text-sm"
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Floor
-              </label>
+            <FormField id="room-floor" label="Floor" error={fieldErrors.floor} required>
               <input
+                id="room-floor"
                 type="number"
                 min={1}
                 max={15}
-                required
                 value={formData.floor}
-                onChange={(e) => setFormData({ ...formData, floor: parseInt(e.target.value) || 1 })}
+                aria-invalid={Boolean(fieldErrors.floor)}
+                aria-describedby={fieldErrors.floor ? 'room-floor-error' : undefined}
+                onChange={(e) => updateField('floor', parseInt(e.target.value) || 1)}
                 className="input-base text-sm"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Room Type
-              </label>
+            </FormField>
+            <FormField id="room-type" label="Room Type">
               <select
+                id="room-type"
                 value={formData.roomType}
                 onChange={(e) => setFormData({ ...formData, roomType: e.target.value as RoomType })}
                 className="select-base text-sm"
@@ -312,20 +337,20 @@ export const RoomsPage: React.FC = () => {
                 <option value="Cafeteria">Cafeteria</option>
                 <option value="Utility Room">Utility Room</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                Capacity
-              </label>
+            </FormField>
+            <FormField id="room-capacity" label="Capacity" error={fieldErrors.capacity}>
               <input
+                id="room-capacity"
                 type="number"
                 min={0}
                 max={500}
                 value={formData.capacity}
-                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 0 })}
+                aria-invalid={Boolean(fieldErrors.capacity)}
+                aria-describedby={fieldErrors.capacity ? 'room-capacity-error' : undefined}
+                onChange={(e) => updateField('capacity', parseInt(e.target.value) || 0)}
                 className="input-base text-sm"
               />
-            </div>
+            </FormField>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">

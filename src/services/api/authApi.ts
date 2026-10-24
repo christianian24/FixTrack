@@ -1,4 +1,4 @@
-import { apiClient, setToken, clearToken } from './client';
+import { apiClient, ApiError, setToken, clearToken } from './client';
 
 export interface LoginRequest {
   email: string;
@@ -32,6 +32,7 @@ export interface MeResponse {
   phone: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  is_online: boolean;
 }
 
 export const authApi = {
@@ -50,8 +51,14 @@ export const authApi = {
       }
     );
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Login failed' }));
-      throw new Error(err.detail ?? 'Login failed');
+      let detail: unknown = res.statusText;
+      try {
+        const payload = await res.json();
+        detail = payload?.detail ?? payload;
+      } catch {
+        // Keep a generic status-based error when the response is not JSON.
+      }
+      throw new ApiError(res.status, detail);
     }
     const token: TokenResponse = await res.json();
     setToken(token.access_token);
@@ -64,8 +71,8 @@ export const authApi = {
     return token;
   },
 
-  async loginDemo(persona: string): Promise<TokenResponse> {
-    const token = await apiClient.post<TokenResponse>(`/auth/demo-login/${persona}`);
+  async loginDemo(userId: string): Promise<TokenResponse> {
+    const token = await apiClient.post<TokenResponse>('/auth/demo-login', { user_id: userId });
     setToken(token.access_token);
     return token;
   },

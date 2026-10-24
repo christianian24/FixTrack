@@ -1,10 +1,16 @@
 """Tests for concern lifecycle workflow."""
 from __future__ import annotations
 
+import re
+from datetime import datetime, timezone
+
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1 import concerns as concerns_api
+from app.models.concern import Concern
 from app.models.facility import Building, Room
 from app.models.category import FacilityCategory
 from app.models.user import User
@@ -39,6 +45,35 @@ CONCERN_PAYLOAD = {
 }
 
 
+async def _seed_tracking_numbers(
+    db: AsyncSession,
+    reporter_id: str,
+    sequences: list[tuple[int, bool]],
+) -> None:
+    year = datetime.now(timezone.utc).year
+    db.add_all(
+        [
+            Concern(
+                tracking_number=f"FC-{year}-{sequence:04d}",
+                title=f"Existing concern {sequence}",
+                description="Existing concern for tracking-number test.",
+                reporter_id=reporter_id,
+                deleted_at=datetime.now(timezone.utc) if archived else None,
+            )
+            for sequence, archived in sequences
+        ]
+    )
+    await db.flush()
+
+
+async def _submit_concern(client: AsyncClient, token: str):
+    return await client.post(
+        "/api/v1/concerns/",
+        json=CONCERN_PAYLOAD,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
 async def test_student_can_submit_concern(
     client: AsyncClient, db_session: AsyncSession, student_token: str
 ):
@@ -66,6 +101,77 @@ async def test_student_can_submit_concern(
     )
     assert list_response.status_code == 200
     assert list_response.json()[0]["building_name"] == "Test Building"
+
+
+async def test_create_concern_uses_highest_existing_tracking_number(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    student_user,
+    student_token: str,
+):
+    await _seed_facility(db_session)
+    await _seed_tracking_numbers(
+        db_session, student_user.id, [(1, False), (3, False), (14, False)]
+    )
+
+    response = await _submit_concern(client, student_token)
+
+    assert response.status_code == 201, response.text
+    generated_number = response.json()["tracking_number"]
+    year = datetime.now(timezone.utc).year
+    assert generated_number == f"FC-{year}-0015"
+    assert re.fullmatch(r"FC-\d{4}-\d{4,}", generated_number)
+
+    result = await db_session.execute(select(Concern.tracking_number))
+    tracking_numbers = result.scalars().all()
+    assert len(tracking_numbers) == len(set(tracking_numbers))
+
+
+async def test_archived_concern_keeps_its_tracking_number_reserved(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    student_user,
+    student_token: str,
+):
+    await _seed_facility(db_session)
+    await _seed_tracking_numbers(
+        db_session, student_user.id, [(8, False), (14, True)]
+    )
+
+    response = await _submit_concern(client, student_token)
+
+    assert response.status_code == 201, response.text
+    year = datetime.now(timezone.utc).year
+    assert response.json()["tracking_number"] == f"FC-{year}-0015"
+
+
+async def test_create_concern_retries_tracking_number_unique_collision(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    student_user,
+    student_token: str,
+    monkeypatch,
+):
+    await _seed_facility(db_session)
+    await _seed_tracking_numbers(db_session, student_user.id, [(1, False)])
+
+    original_generator = concerns_api._next_tracking_number
+    year = datetime.now(timezone.utc).year
+    calls = 0
+
+    async def collide_once(db: AsyncSession, *, after_sequence: int = 0) -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return f"FC-{year}-0001"
+        return await original_generator(db, after_sequence=after_sequence)
+
+    monkeypatch.setattr(concerns_api, "_next_tracking_number", collide_once)
+    response = await _submit_concern(client, student_token)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["tracking_number"] == f"FC-{year}-0002"
+    assert calls == 2
 
 
 async def test_other_location_concern_can_be_submitted(

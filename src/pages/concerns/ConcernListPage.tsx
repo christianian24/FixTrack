@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
 import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 
 export const ConcernListPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { currentRole } = useAuth();
   const { concerns, buildings, categories } = useFacilityCare();
   const isCompactRole = currentRole === 'REPORTER' || currentRole === 'MAINTENANCE_SUPERVISOR' || currentRole === 'ADMINISTRATOR';
@@ -29,6 +31,17 @@ export const ConcernListPage: React.FC = () => {
   const [selectedBuilding, setSelectedBuilding] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'priority'>('newest');
+  const successMessage =
+    (location.state as { successMessage?: string } | null)?.successMessage;
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = window.setTimeout(
+      () => navigate(location.pathname, { replace: true, state: null }),
+      3500,
+    );
+    return () => window.clearTimeout(timer);
+  }, [location.key, location.pathname, location.state, navigate, successMessage]);
 
   const filteredConcerns = useMemo(() => {
     let list = [...concerns];
@@ -80,6 +93,11 @@ export const ConcernListPage: React.FC = () => {
 
   return (
     <div className={isCompactRole ? 'space-y-3' : 'space-y-4'}>
+      {successMessage && (
+        <div className="fixed top-5 right-5 z-50 max-w-[calc(100vw-2.5rem)] rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 shadow-lg" role="status">
+          {successMessage}
+        </div>
+      )}
       {/* Page header */}
         <div className={`flex flex-col sm:flex-row sm:items-center justify-between ${isCompactRole ? 'gap-3' : 'gap-4'}`}>
         <div>

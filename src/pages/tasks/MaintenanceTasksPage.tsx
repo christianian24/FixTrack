@@ -5,7 +5,7 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge, PriorityBadge } from '../../components/common/Badge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { formatBuildingLabel, formatConcernRoom } from '../../lib/locationFormatting';
-import { CheckSquare, Search, ArrowRight, ChevronDown, CalendarDays, Building2, MapPin, LayoutGrid, List } from 'lucide-react';
+import { CheckSquare, Search, ArrowRight, ChevronDown, CalendarDays, LayoutGrid, List } from 'lucide-react';
 
 type SortOption = 'newest' | 'oldest' | 'priority' | 'status';
 

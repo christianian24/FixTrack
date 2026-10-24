@@ -35,6 +35,10 @@
   --text-muted: #64748b;
   --text-inverse: #ffffff;
 
+  --form-error-border: #fca5a5;
+  --form-error-text: #b91c1c;
+  --form-error-background: #fef2f2;
+
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -76,26 +80,6 @@ body::after {
 
 .bg-ambient-orb {
   animation: driftOne 18s ease-in-out infinite alternate;
-}
-
-.bg-technical-grid {
-  background-image:
-    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.18), transparent 60%);
-  background-size: 38px 38px, 38px 38px, 100% 100%;
-  mask-image: radial-gradient(circle at center, black 42%, transparent 100%);
-}
-
-.bg-architectural-curve {
-  filter: blur(2px);
-  animation: driftTwo 20s ease-in-out infinite alternate;
-}
-
-.bg-dot-field {
-  background-image: radial-gradient(rgba(125, 211, 252, 0.44) 1.1px, transparent 1.1px);
-  background-size: 12px 12px;
-  mask-image: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.3), transparent 90%);
 }
 
 .campus-scene {
@@ -287,6 +271,30 @@ body::after {
   outline: none;
   border-color: #0284c7;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+:is(input, select, textarea)[aria-invalid="true"]:not(:disabled) {
+  border-color: var(--form-error-border);
+}
+
+:is(input, select, textarea)[aria-invalid="true"]:not(:disabled):focus {
+  border-color: var(--form-error-border);
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.1);
+}
+
+.form-field-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.form-field-error {
+  margin-top: 0.375rem;
+  color: var(--form-error-text);
+  font-size: 0.75rem;
+  line-height: 1rem;
 }
 
 .btn-primary {

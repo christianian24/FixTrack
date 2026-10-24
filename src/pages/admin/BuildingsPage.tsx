@@ -3,6 +3,15 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { Building } from '../../types/building';
 import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { FormField } from '../../components/forms/FormField';
+import {
+  clearResolvedFieldError,
+  numberField,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+  type FieldValidators,
+} from '../../lib/formValidation';
 import {
   Plus,
   Edit2,
@@ -21,21 +30,46 @@ export const BuildingsPage: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '', code: '', floors: 3, totalRooms: 15, description: '', status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
   });
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const validators: FieldValidators = {
+    name: requiredField('Building name'),
+    code: requiredField('Building code'),
+    floors: (value) => numberField(value, 'Floor count', 1, 15),
+  };
+
+  const updateField = (field: keyof typeof formData, value: string | number) => {
+    const next = { ...formData, [field]: value };
+    setFormData(next);
+    setFieldErrors((errors) =>
+      clearResolvedFieldError(
+        errors,
+        field,
+        value,
+        validators[field] ?? (() => null),
+        next,
+      ),
+    );
+  };
 
   const handleOpenAdd = () => {
     setEditingBuilding(null);
     setFormData({ name: '', code: '', floors: 3, totalRooms: 12, description: '', status: 'ACTIVE' });
+    setFieldErrors({});
     setModalOpen(true);
   };
 
   const handleOpenEdit = (b: Building) => {
     setEditingBuilding(b);
     setFormData({ name: b.name, code: b.code, floors: b.floors, totalRooms: b.totalRooms, description: b.description || '', status: b.status });
+    setFieldErrors({});
     setModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateFields(formData, validators);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     if (editingBuilding) updateBuilding(editingBuilding.id, formData);
     else addBuilding(formData);
     setModalOpen(false);
@@ -108,25 +142,21 @@ export const BuildingsPage: React.FC = () => {
 
       {/* Modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingBuilding ? 'Edit Building' : 'Register New Building'}>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Building Name</label>
-            <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Science Complex" className="input-base" />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <FormField id="building-name" label="Building Name" error={fieldErrors.name} required>
+            <input id="building-name" type="text" value={formData.name} aria-invalid={Boolean(fieldErrors.name)} aria-describedby={fieldErrors.name ? 'building-name-error' : undefined} onChange={(e) => updateField('name', e.target.value)} placeholder="e.g. Science Complex" className="input-base" />
+          </FormField>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Building Code</label>
-              <input type="text" required value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} placeholder="e.g. SCI" className="input-base" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Total Floors</label>
-              <input type="number" min={1} max={15} required value={formData.floors} onChange={(e) => setFormData({ ...formData, floors: parseInt(e.target.value) || 1 })} className="input-base" />
-            </div>
+            <FormField id="building-code" label="Building Code" error={fieldErrors.code} required>
+              <input id="building-code" type="text" value={formData.code} aria-invalid={Boolean(fieldErrors.code)} aria-describedby={fieldErrors.code ? 'building-code-error' : undefined} onChange={(e) => updateField('code', e.target.value.toUpperCase())} placeholder="e.g. SCI" className="input-base" />
+            </FormField>
+            <FormField id="building-floors" label="Total Floors" error={fieldErrors.floors} required>
+              <input id="building-floors" type="number" min={1} max={15} value={formData.floors} aria-invalid={Boolean(fieldErrors.floors)} aria-describedby={fieldErrors.floors ? 'building-floors-error' : undefined} onChange={(e) => updateField('floors', parseInt(e.target.value) || 1)} className="input-base" />
+            </FormField>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description</label>
-            <textarea rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Primary use, key departments, research wings…" className="input-base" />
-          </div>
+          <FormField id="building-description" label="Description">
+            <textarea id="building-description" rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Primary use, key departments, research wings…" className="input-base" />
+          </FormField>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Cancel</button>
             <button type="submit" className="px-4 py-2 text-sm rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors shadow-sm">{editingBuilding ? 'Save Changes' : 'Register Building'}</button>

@@ -5,7 +5,14 @@ import { useFacilityCare } from '../../store/FacilityCareContext';
 import { StatusBadge } from '../../components/common/Badge';
 import { TimelineView } from '../../components/concerns/TimelineView';
 import { Modal } from '../../components/common/Modal';
+import { FormField } from '../../components/forms/FormField';
 import { formatDateOnly } from '../../lib/formatting';
+import {
+  clearResolvedFieldError,
+  requiredField,
+  validateFields,
+  type FieldErrors,
+} from '../../lib/formValidation';
 import { ShieldCheck, XCircle, ArrowLeft, CheckCircle2, AlertTriangle, Wrench } from 'lucide-react';
 
 export const VerificationDetailPage: React.FC = () => {
@@ -17,8 +24,10 @@ export const VerificationDetailPage: React.FC = () => {
   const concern = concerns.find(c => c.id === id);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionErrors, setRejectionErrors] = useState<FieldErrors>({});
   const [verifyNotes, setVerifyNotes] = useState('Inspected physical work on site. Conforms to institutional safety standards. Operational status confirmed.');
   const [isProcessing, setIsProcessing] = useState(false);
+  const rejectionValidator = requiredField('Corrective action');
 
   if (!concern) {
     return (
@@ -37,7 +46,12 @@ export const VerificationDetailPage: React.FC = () => {
 
   const handleReject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rejectionReason.trim()) return;
+    const errors = validateFields(
+      { rejectionReason },
+      { rejectionReason: rejectionValidator },
+    );
+    setRejectionErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     setIsProcessing(true);
     rejectConcern(concern.id, rejectionReason, currentUser);
     setTimeout(() => { setIsProcessing(false); setRejectModalOpen(false); navigate('/manage'); }, 300);
@@ -147,15 +161,15 @@ export const VerificationDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Verification Sign-Off Notes</label>
+            <FormField id="verification-notes" label="Verification Sign-Off Notes">
               <textarea
+                id="verification-notes"
                 rows={2}
                 value={verifyNotes}
                 onChange={(e) => setVerifyNotes(e.target.value)}
                 className="input-base"
               />
-            </div>
+            </FormField>
           </div>
         </div>
 
@@ -166,7 +180,7 @@ export const VerificationDetailPage: React.FC = () => {
 
       {/* Rejection modal */}
       <Modal isOpen={rejectModalOpen} onClose={() => setRejectModalOpen(false)} title="Request Rework">
-        <form onSubmit={handleReject} className="space-y-4">
+        <form onSubmit={handleReject} className="space-y-4" noValidate>
           <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>
@@ -174,17 +188,23 @@ export const VerificationDetailPage: React.FC = () => {
               {concern.assignedPersonnelName} with your corrective instructions.
             </span>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Required Corrective Action *</label>
+          <FormField id="verification-rejection-reason" label="Required Corrective Action" error={rejectionErrors.rejectionReason} required>
             <textarea
+              id="verification-rejection-reason"
               rows={4}
-              required
               value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
+              aria-invalid={Boolean(rejectionErrors.rejectionReason)}
+              aria-describedby={rejectionErrors.rejectionReason ? 'verification-rejection-reason-error' : undefined}
+              onChange={(e) => {
+                setRejectionReason(e.target.value);
+                setRejectionErrors((errors) =>
+                  clearResolvedFieldError(errors, 'rejectionReason', e.target.value, rejectionValidator),
+                );
+              }}
               placeholder="Specify what remains incomplete or fails safety standards…"
               className="input-base"
             />
-          </div>
+          </FormField>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={() => setRejectModalOpen(false)} className="px-4 py-2 text-sm font-medium rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Cancel</button>
             <button type="submit" className="px-4 py-2 text-sm font-semibold rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition-colors">Confirm Rework Order</button>

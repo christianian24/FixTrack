@@ -26,7 +26,11 @@ async def upload_photo(
     db: Annotated[AsyncSession, Depends(get_db)] = None,
 ):
     # Verify concern exists
-    result = await db.execute(select(Concern).where(Concern.id == concern_id))
+    result = await db.execute(
+        select(Concern).where(
+            Concern.id == concern_id, Concern.deleted_at.is_(None)
+        )
+    )
     concern = result.scalar_one_or_none()
     if not concern:
         raise HTTPException(status_code=404, detail="Concern not found")
@@ -81,7 +85,10 @@ async def delete_photo(
         raise HTTPException(status_code=404, detail="Photo not found")
 
     concern_result = await db.execute(
-        select(Concern).where(Concern.id == photo.concern_id)
+        select(Concern).where(
+            Concern.id == photo.concern_id,
+            Concern.deleted_at.is_(None),
+        )
     )
     concern = concern_result.scalar_one_or_none()
     if not concern:
