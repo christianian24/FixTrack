@@ -26,9 +26,20 @@ export interface CategoryRead {
   id: string;
   name: string;
   description: string | null;
-  icon_name: string | null;
-  default_priority_hint: string | null;
-  status: string;
+  icon: string;
+  color: string;
+  priority_weight: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CategoryWrite {
+  name: string;
+  description: string | null;
+  icon: string;
+  color: string;
+  priority_weight: number;
+  is_active?: boolean;
 }
 
 export interface UserRead {
@@ -103,10 +114,10 @@ export const categoriesApi = {
   get(id: string): Promise<CategoryRead> {
     return apiClient.get<CategoryRead>(`/categories/${id}`);
   },
-  create(data: Omit<CategoryRead, 'id' | 'status'>): Promise<CategoryRead> {
+  create(data: CategoryWrite): Promise<CategoryRead> {
     return apiClient.post<CategoryRead>('/categories', data);
   },
-  update(id: string, data: Partial<CategoryRead>): Promise<CategoryRead> {
+  update(id: string, data: Partial<CategoryWrite>): Promise<CategoryRead> {
     return apiClient.patch<CategoryRead>(`/categories/${id}`, data);
   },
   remove(id: string): Promise<void> {

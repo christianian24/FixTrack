@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.dependencies import get_current_user, require_roles
@@ -15,6 +16,7 @@ from ...schemas.facility import CategoryCreate, CategoryResponse, CategoryUpdate
 router = APIRouter()
 
 
+@router.get("", response_model=list[CategoryResponse], include_in_schema=False)
 @router.get("/", response_model=list[CategoryResponse])
 async def list_categories(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -24,6 +26,7 @@ async def list_categories(
     return [CategoryResponse.model_validate(c) for c in result.scalars()]
 
 
+@router.post("", response_model=CategoryResponse, status_code=201, include_in_schema=False)
 @router.post("/", response_model=CategoryResponse, status_code=201)
 async def create_category(
     payload: CategoryCreate,
@@ -32,7 +35,12 @@ async def create_category(
 ):
     cat = FacilityCategory(**payload.model_dump())
     db.add(cat)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409, detail="A category with this name already exists"
+        ) from exc
     await db.refresh(cat)
     return CategoryResponse.model_validate(cat)
 
@@ -52,7 +60,12 @@ async def update_category(
         raise HTTPException(status_code=404, detail="Category not found")
     for field, val in payload.model_dump(exclude_none=True).items():
         setattr(cat, field, val)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409, detail="A category with this name already exists"
+        ) from exc
     await db.refresh(cat)
     return CategoryResponse.model_validate(cat)
 

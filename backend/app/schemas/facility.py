@@ -65,6 +65,7 @@ class CategoryCreate(BaseModel):
     icon: str = "Wrench"
     color: str = "blue"
     priority_weight: int = Field(5, ge=1, le=10)
+    is_active: bool = True
 
 
 class CategoryUpdate(BaseModel):

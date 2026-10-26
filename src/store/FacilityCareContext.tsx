@@ -39,11 +39,27 @@ type BackendRoom = {
 type BackendCategory = {
   id: string;
   name: string;
-  description?: string | null;
-  icon_name?: string | null;
-  default_priority_hint?: string | null;
-  status?: string;
-  is_active?: boolean;
+  description: string | null;
+  icon: string;
+  color: string;
+  priority_weight: number;
+  is_active: boolean;
+};
+
+const priorityWeightToHint = (weight: number): FacilityCategory['defaultPriorityHint'] => {
+  if (weight >= 9) return 'CRITICAL';
+  if (weight >= 7) return 'HIGH';
+  if (weight <= 3) return 'LOW';
+  return 'MEDIUM';
+};
+
+const priorityHintToWeight = (hint: FacilityCategory['defaultPriorityHint']): number => {
+  switch (hint) {
+    case 'LOW': return 2;
+    case 'MEDIUM': return 5;
+    case 'HIGH': return 7;
+    case 'CRITICAL': return 10;
+  }
 };
 
 type BackendUser = {
@@ -108,9 +124,9 @@ const mapCategory = (item: BackendCategory): FacilityCategory => ({
   id: item.id,
   name: item.name,
   description: item.description ?? '',
-  iconName: item.icon_name ?? 'Wrench',
-  defaultPriorityHint: (item.default_priority_hint as FacilityCategory['defaultPriorityHint']) ?? 'MEDIUM',
-  status: backendStringToStatus(item.is_active ?? item.status),
+  iconName: item.icon ?? 'Wrench',
+  defaultPriorityHint: priorityWeightToHint(item.priority_weight),
+  status: backendStringToStatus(item.is_active),
 });
 
 const mapUser = (item: BackendUser): User => ({
@@ -247,9 +263,9 @@ interface FacilityCareContextType {
   updateRoom: (id: string, updates: Partial<Room>) => void;
   toggleRoomStatus: (id: string) => void;
   
-  addCategory: (category: Omit<FacilityCategory, 'id'>) => void;
-  updateCategory: (id: string, updates: Partial<FacilityCategory>) => void;
-  toggleCategoryStatus: (id: string) => void;
+  addCategory: (category: Omit<FacilityCategory, 'id'>) => Promise<void>;
+  updateCategory: (id: string, updates: Partial<FacilityCategory>) => Promise<void>;
+  toggleCategoryStatus: (id: string) => Promise<void>;
 
   updateUser: (id: string, updates: Partial<User>) => Promise<void>;
   toggleUserStatus: (id: string) => Promise<void>;
@@ -577,28 +593,39 @@ const FacilityCareStateProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Category Actions
-  const addCategory = (data: Omit<FacilityCategory, 'id'>) => {
-    const newCat: FacilityCategory = {
-      ...data,
-      id: `cat-${Date.now()}`
-    };
-    setCategories(prev => [...prev, newCat]);
+  const addCategory = async (data: Omit<FacilityCategory, 'id'>): Promise<void> => {
+    const response = await categoriesApi.create({
+      name: data.name.trim(),
+      description: data.description.trim() || null,
+      icon: data.iconName,
+      color: 'blue',
+      priority_weight: priorityHintToWeight(data.defaultPriorityHint),
+      is_active: data.status === 'ACTIVE',
+    });
+    const category = mapCategory(response);
+    setCategories((prev) => [...prev.filter((item) => item.id !== category.id), category]);
   };
 
-  const updateCategory = (id: string, updates: Partial<FacilityCategory>) => {
-    setCategories(prev =>
-      prev.map(cat => (cat.id === id ? { ...cat, ...updates } : cat))
-    );
+  const updateCategory = async (id: string, updates: Partial<FacilityCategory>): Promise<void> => {
+    const response = await categoriesApi.update(id, {
+      name: updates.name?.trim(),
+      description: updates.description?.trim() || undefined,
+      icon: updates.iconName,
+      priority_weight: updates.defaultPriorityHint
+        ? priorityHintToWeight(updates.defaultPriorityHint)
+        : undefined,
+      is_active: updates.status ? updates.status === 'ACTIVE' : undefined,
+    });
+    const category = mapCategory(response);
+    setCategories((prev) => prev.map((item) => item.id === id ? category : item));
   };
 
-  const toggleCategoryStatus = (id: string) => {
-    setCategories(prev =>
-      prev.map(cat =>
-        cat.id === id
-          ? { ...cat, status: cat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }
-          : cat
-      )
-    );
+  const toggleCategoryStatus = async (id: string): Promise<void> => {
+    const category = categories.find((item) => item.id === id);
+    if (!category) return;
+    await updateCategory(id, {
+      status: category.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+    });
   };
 
   const updateUser = async (id: string, updates: Partial<User>) => {

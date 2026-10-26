@@ -46,11 +46,15 @@ export const NewConcernPage: React.FC = () => {
   const { currentUser, currentRole } = useAuth();
   const isReporter = currentRole === 'REPORTER';
   const { concerns, buildings, rooms, categories, createConcern, uploadConcernPhoto } = useFacilityCare();
+  const activeCategories = useMemo(
+    () => categories.filter((category) => category.status === 'ACTIVE'),
+    [categories],
+  );
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [categoryId, setCategoryId] = useState(categories[0]?.id || '');
+  const [categoryId, setCategoryId] = useState(activeCategories[0]?.id || '');
   const [buildingId, setBuildingId] = useState(buildings[0]?.id || '');
   const availableRooms = useMemo(() => rooms.filter(r => r.buildingId === buildingId && r.status === 'ACTIVE'), [rooms, buildingId]);
   const [roomId, setRoomId] = useState('');
@@ -67,8 +71,10 @@ export const NewConcernPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!categoryId && categories[0]) setCategoryId(categories[0].id);
-  }, [categories, categoryId]);
+    if (!activeCategories.some((category) => category.id === categoryId)) {
+      setCategoryId(activeCategories[0]?.id || '');
+    }
+  }, [activeCategories, categoryId]);
 
   useEffect(() => {
     if (!buildings.some((building) => building.id === buildingId)) {
@@ -83,7 +89,7 @@ export const NewConcernPage: React.FC = () => {
     }
   }, [rooms, buildingId, roomId, isOtherLocation]);
 
-  const selectedCategory = useMemo(() => categories.find(c => c.id === categoryId), [categories, categoryId]);
+  const selectedCategory = useMemo(() => activeCategories.find(c => c.id === categoryId), [activeCategories, categoryId]);
   const selectedBuilding  = useMemo(() => buildings.find(b => b.id === buildingId), [buildings, buildingId]);
   const selectedRoom      = useMemo(() => rooms.find(r => r.id === selectedRoomId), [rooms, selectedRoomId]);
 
@@ -291,7 +297,7 @@ export const NewConcernPage: React.FC = () => {
                 aria-invalid={Boolean(formErrors.categoryId)}
                 aria-describedby={formErrors.categoryId ? 'concern-category-error' : undefined}
               >
-                {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                {activeCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
               </select>
               </FormField>
               {selectedCategory && (

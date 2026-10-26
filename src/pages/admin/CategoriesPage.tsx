@@ -7,6 +7,8 @@ import { PriorityBadge } from '../../components/common/Badge';
 import { FormField } from '../../components/forms/FormField';
 import {
   clearResolvedFieldError,
+  mapApiError,
+  minimumLengthField,
   requiredField,
   validateFields,
   type FieldErrors,
@@ -36,9 +38,11 @@ export const CategoriesPage: React.FC = () => {
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE'
   });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const validators: FieldValidators = {
-    name: requiredField('Category name'),
-    description: requiredField('Description'),
+    name: (value) => requiredField('Category name')(value, {}) ??
+      minimumLengthField(value, 'Category name', 2),
   };
 
   const updateField = (field: keyof typeof formData, value: string) => {
@@ -59,6 +63,7 @@ export const CategoriesPage: React.FC = () => {
       status: 'ACTIVE'
     });
     setFieldErrors({});
+    setActionError(null);
     setModalOpen(true);
   };
 
@@ -72,20 +77,43 @@ export const CategoriesPage: React.FC = () => {
       status: cat.status
     });
     setFieldErrors({});
+    setActionError(null);
     setModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors = validateFields(formData, validators);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    if (editingCategory) {
-      updateCategory(editingCategory.id, formData);
-    } else {
-      addCategory(formData);
+    setIsSaving(true);
+    setActionError(null);
+    try {
+      if (editingCategory) {
+        await updateCategory(editingCategory.id, formData);
+      } else {
+        await addCategory(formData);
+      }
+      setModalOpen(false);
+    } catch (error) {
+      const feedback = mapApiError(error, 'Unable to save this category. Please try again.', {
+        knownFields: ['name'],
+      });
+      setFieldErrors(feedback.fieldErrors);
+      setActionError(feedback.generalMessage);
+    } finally {
+      setIsSaving(false);
     }
-    setModalOpen(false);
+  };
+
+  const handleToggleStatus = async (category: FacilityCategory) => {
+    setActionError(null);
+    try {
+      await toggleCategoryStatus(category.id);
+      setConfirmCategory(null);
+    } catch {
+      setActionError('Unable to update this category. Please try again.');
+    }
   };
 
   return (
@@ -107,6 +135,12 @@ export const CategoriesPage: React.FC = () => {
           <Plus className="w-4 h-4" /> Add Category
         </button>
       </div>
+
+      {actionError && !modalOpen && (
+        <p role="alert" className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">
+          {actionError}
+        </p>
+      )}
 
       {/* Categories Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -188,13 +222,11 @@ export const CategoriesPage: React.FC = () => {
             />
           </FormField>
 
-          <FormField id="category-description" label="Description" error={fieldErrors.description} required>
+          <FormField id="category-description" label="Description (optional)">
             <textarea
               id="category-description"
               rows={3}
               value={formData.description}
-              aria-invalid={Boolean(fieldErrors.description)}
-              aria-describedby={fieldErrors.description ? 'category-description-error' : undefined}
               onChange={(e) => updateField('description', e.target.value)}
               placeholder="Fixtures, hardware, or campus systems under this classification..."
               className="textarea-base text-sm"
@@ -228,6 +260,12 @@ export const CategoriesPage: React.FC = () => {
             </FormField>
           </div>
 
+          {actionError && (
+            <p role="alert" className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">
+              {actionError}
+            </p>
+          )}
+
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
             <button
               type="button"
@@ -238,9 +276,10 @@ export const CategoriesPage: React.FC = () => {
             </button>
             <button
               type="submit"
+              disabled={isSaving}
               className="px-5 py-2 text-sm rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors shadow-sm"
             >
-              {editingCategory ? 'Save Changes' : 'Create Category'}
+              {isSaving ? 'Saving...' : editingCategory ? 'Save Changes' : 'Create Category'}
             </button>
           </div>
         </form>
@@ -251,10 +290,7 @@ export const CategoriesPage: React.FC = () => {
         <ConfirmDialog
           isOpen={!!confirmCategory}
           onClose={() => setConfirmCategory(null)}
-          onConfirm={() => {
-            toggleCategoryStatus(confirmCategory.id);
-            setConfirmCategory(null);
-          }}
+          onConfirm={() => void handleToggleStatus(confirmCategory)}
           title={`${confirmCategory.status === 'ACTIVE' ? 'Deactivate' : 'Activate'} Category`}
           message={`Are you sure you want to ${
             confirmCategory.status === 'ACTIVE' ? 'deactivate' : 'activate'
